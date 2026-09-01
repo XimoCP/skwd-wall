@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=skwd-wall v2
+GenericName=Wallpaper Picker
+Comment=Browse and apply image, video, and Wallpaper Engine wallpapers
+Exec=skwd-wall-v2
+Icon=skwd-wall-v2
+Terminal=false
+Categories=Graphics;
+Keywords=wallpaper;background;desktop;
+StartupNotify=false
