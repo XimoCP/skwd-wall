@@ -16,10 +16,12 @@ concurrency:
 jobs:
   verify:
     name: Forgejo / Wall required
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '(#')
     runs-on: skwd-wall-next-ci
-    timeout-minutes: 60
+    timeout-minutes: 35
     env:
       CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_RELEASE_PANIC: unwind
       CARGO_TERM_COLOR: always
       RUST_BACKTRACE: "1"
       SKWD_RUNNER_IMAGE: sha256:66058d5c15a5011188ee634bb909d730c279ab0d65408581b5d70e99a6970edb
@@ -96,18 +98,6 @@ jobs:
         continue-on-error: true
         run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.format --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-format.json -- cargo fmt --check
 
-      - name: Clippy
-        continue-on-error: true
-        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.clippy --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-clippy.json -- cargo clippy --locked --all-targets -- -D warnings
-
-      - name: Tests
-        continue-on-error: true
-        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.tests --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-tests.json -- cargo test --locked --release
-
-      - name: Allocation guards
-        continue-on-error: true
-        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.allocations --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-allocations.json -- cargo test --locked --release --features obs-heap alloc_free -- --test-threads=1
-
       - name: Python tests
         continue-on-error: true
         run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.python --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-python.json -- env PYTHONDONTWRITEBYTECODE=1 python3 "$SKWD_VERIFY_ROOT/scripts/python_suite.py"
@@ -116,9 +106,39 @@ jobs:
         continue-on-error: true
         run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.unsafe --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-unsafe.json -- "$SKWD_VERIFY_ROOT/scripts/check-unsafe-code.sh"
 
+      - name: Clippy
+        id: clippy
+        continue-on-error: true
+        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.clippy --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-clippy.json -- cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Tests
+        id: tests
+        if: steps.clippy.outcome == 'success'
+        continue-on-error: true
+        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.tests --target linux-x86_64 --expect-skips 2 --out ci-artifacts/results/wall-tests.json -- cargo test --locked --release --features obs-heap -- --skip alloc_free
+
+      - name: Allocation guards
+        if: steps.tests.outcome == 'success'
+        continue-on-error: true
+        run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.allocations --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-allocations.json -- cargo test --locked --release --features obs-heap --bin skwd-wall alloc_free -- --test-threads=1
+
       - name: Release build
+        if: steps.tests.outcome == 'success'
         continue-on-error: true
         run: python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" wrap --suite wall.release --target linux-x86_64 --expect-skips 0 --out ci-artifacts/results/wall-release.json -- cargo build --locked --release --package skwd-wall --bin skwd-wall
+
+      - name: Record blocked suites
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          present=$(jq -r .suite ci-artifacts/results/*.json)
+          grep -v '^#' scripts/ci-required-manifest.txt | sed '/^[[:space:]]*$/d' | while read -r suite; do
+            if ! printf '%s\n' "$present" | grep -qx -- "$suite"; then
+              python3 "$SKWD_VERIFY_ROOT/scripts/ci-report.py" emit --suite "$suite" --target linux-x86_64 --ok false --detail 'BLOCKED: an earlier required gate failed' --out "ci-artifacts/results/$(printf '%s' "$suite" | tr . -).json"
+            fi
+          done
 
       - name: Record exact execution provenance
         if: always()

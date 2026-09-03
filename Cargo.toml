@@ -36,6 +36,9 @@ iced_runtime = "0.14"
 iced_wgpu = { version = "0.14", default-features = false, features = ["texture-compression-bc"] }
 wgpu = { version = "27", default-features = false, features = ["std", "parking_lot", "vulkan", "wgsl"] }
 bytemuck = { version = "1", features = ["derive"] }
+bit-set = { version = "0.8", features = ["std"] }
+bit-vec = { version = "0.8", features = ["std"] }
+getrandom = { version = "0.3", features = ["std"] }
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -101,6 +104,9 @@ tempfile.workspace = true
 
 [build-dependencies]
 serde_json.workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["bit-set", "bit-vec", "getrandom"]
 
 [workspace.lints.rust]
 unsafe_code = "allow"

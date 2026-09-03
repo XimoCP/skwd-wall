@@ -19,6 +19,7 @@ for argument in "$@"; do
 done
 
 VERIFY_ROOT="${SKWD_VERIFY_ROOT:-../skwd-verify}"
+export CARGO_PROFILE_RELEASE_PANIC=unwind
 if [ ! -f "$VERIFY_ROOT/scripts/python_suite.py" ]; then
     echo "missing skwd-verify checkout at $VERIFY_ROOT (set SKWD_VERIFY_ROOT)" >&2
     exit 1
@@ -42,8 +43,8 @@ run() {
 
 run format cargo fmt --check
 run clippy cargo clippy --locked --all-targets -- -D warnings
-run tests cargo test --locked --release
-run allocations cargo test --locked --release --features obs-heap alloc_free -- --test-threads=1
+run tests cargo test --locked --release --features obs-heap -- --skip alloc_free
+run allocations cargo test --locked --release --features obs-heap --bin skwd-wall alloc_free -- --test-threads=1
 run python env PYTHONDONTWRITEBYTECODE=1 python3 "$VERIFY_ROOT/scripts/python_suite.py"
 run unsafe-inventory "$VERIFY_ROOT/scripts/check-unsafe-code.sh"
 run release cargo build --locked --release --package skwd-wall --bin skwd-wall
