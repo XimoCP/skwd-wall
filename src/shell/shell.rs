@@ -140,9 +140,9 @@ pub(super) fn cold_nvidia_compiler_mapping(line: &str) -> Option<(*mut libc::c_v
 #[cfg(target_os = "linux")]
 pub(super) fn control_socket_name() -> String {
     let uid = unsafe { libc::getuid() };
-    match std::env::var("SKWD_WALL_INSTANCE") {
-        Ok(tag) if !tag.is_empty() => format!("skwd-wall.{uid}.{tag}"),
-        _ => format!("skwd-wall.{uid}"),
+    match std::env::var("SKWD_WALL_V2_INSTANCE") {
+        Ok(tag) if !tag.is_empty() => format!("skwd-wall-v2.{uid}.{tag}"),
+        _ => format!("skwd-wall-v2.{uid}"),
     }
 }
 
@@ -309,7 +309,7 @@ fn run_layershell() -> Result<(), String> {
             },
             fonts: vec![UI_FONT_BYTES.into(), NERD_FONT_BYTES.into()],
             default_font: crate::frontend::ui::UI_FONT,
-            antialiasing: false,
+            antialiasing: true,
             ..Settings::default()
         })
         .style(app::style)
@@ -453,7 +453,7 @@ fn run_winit() -> Result<(), String> {
         .font(UI_FONT_BYTES)
         .font(NERD_FONT_BYTES)
         .default_font(crate::frontend::ui::UI_FONT)
-        .antialiasing(false)
+        .antialiasing(true)
         .window(iced::window::Settings {
             fullscreen: true,
             decorations: false,

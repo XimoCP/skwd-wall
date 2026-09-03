@@ -93,6 +93,7 @@ pub(super) fn tab_transitions(builder: &mut Builder<'_>) {
             path: String::from(SHADER_FAMILY_KEY),
             options: family_opts,
             current: family.to_string(),
+            disabled: Vec::new(),
         },
     );
     if family != "random" {

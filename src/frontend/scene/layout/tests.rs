@@ -11,6 +11,7 @@ fn sp(slice_w: f32, spacing: f32, count: usize) -> SliceParams {
         slice_h: 400.0,
         spacing,
         skew: 10.0,
+        edge_tilt: 0.0,
         visible_count: count,
         corners: [8.0; 4],
         wobble: false,
@@ -47,11 +48,12 @@ fn slice_width_midline() {
 #[test]
 fn morph_eases_and_snaps() {
     let mut cur = sp(100.0, 10.0, 5);
-    let tgt = sp(200.0, 30.0, 9);
+    let tgt = SliceParams { edge_tilt: 40.0, ..sp(200.0, 30.0, 9) };
     assert!(!cur.settled_to(&tgt));
     cur.morph_toward(&tgt, 0.5);
     assert!((cur.slice_w - 150.0).abs() < 0.01);
     assert!((cur.spacing - 20.0).abs() < 0.01);
+    assert!((cur.edge_tilt - 20.0).abs() < 0.01);
     assert_eq!(cur.visible_count, 9);
     assert!(!cur.settled_to(&tgt));
 }
@@ -98,6 +100,7 @@ fn hit(skew: f32, hex: bool) -> Hit {
         hw: 50.0,
         hh: 50.0,
         skew,
+        edge_tilt: 0.0,
         hex,
         hex_shape: HexShape::Hexagon,
         triangle_direction: 0,
@@ -141,6 +144,28 @@ fn contains_negative_skew() {
     assert!(area.contains(149.0, 149.5));
     assert!(!area.contains(100.0, 49.0));
     assert!(!area.contains(100.0, 151.0));
+}
+
+#[test]
+fn contains_positive_edge_tilt() {
+    let area = Hit { edge_tilt: 30.0, ..hit(0.0, false) };
+    assert!(!area.contains(50.5, 50.5));
+    assert!(area.contains(50.5, 80.5));
+    assert!(area.contains(149.5, 50.5));
+    assert!(area.contains(50.5, 149.5));
+    assert!(area.contains(149.5, 119.5));
+    assert!(!area.contains(149.5, 130.0));
+    assert!(area.contains(100.0, 100.0));
+}
+
+#[test]
+fn contains_negative_edge_tilt() {
+    let area = Hit { edge_tilt: -30.0, ..hit(0.0, false) };
+    assert!(area.contains(50.5, 50.5));
+    assert!(!area.contains(149.5, 50.5));
+    assert!(area.contains(149.5, 80.5));
+    assert!(!area.contains(50.5, 130.0));
+    assert!(area.contains(149.5, 149.5));
 }
 
 #[test]

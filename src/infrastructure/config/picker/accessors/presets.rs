@@ -99,6 +99,7 @@ impl Config {
         map.insert("sliceWidth".into(), Value::from(self.slice_width() as f64));
         map.insert("sliceSpacing".into(), Value::from(self.slice_spacing() as f64));
         map.insert("skewOffset".into(), Value::from(self.skew_offset() as f64));
+        map.insert("sliceEdgeTilt".into(), Value::from(self.slice_edge_tilt() as f64));
         map.insert("sliceWobble".into(), Value::from(self.slice_wobble()));
         map.insert(
             "sliceWobbleStrength".into(),

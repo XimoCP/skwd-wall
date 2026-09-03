@@ -65,3 +65,28 @@ fn masthead_span_negative_skew() {
     assert!((wide_span.1 - wide_span.0) > (narrow_span.1 - narrow_span.0));
     assert!(((wide_span.1 - wide_span.0) - (wide.masthead.2 - panel.skew.abs())).abs() < 0.01);
 }
+
+#[test]
+fn embedded_surface_tracks_edge_tilt() {
+    let panel = BackPanel {
+        embedded: true,
+        cx: 500.0,
+        cy: 300.0,
+        hw: 400.0,
+        hh: 250.0,
+        edge_tilt: 48.0,
+        ..BackPanel::default()
+    };
+    let layout = back_layout(&panel);
+    let card = iced::Rectangle::new(
+        iced::Point::new(layout.card.0, layout.card.1),
+        iced::Size::new(layout.card.2, layout.card.3),
+    );
+    let [top_left, top_right, bottom_right, bottom_left] =
+        super::super::background::embedded_section_points(&panel, &layout, card);
+
+    assert!((top_left.y - top_right.y - panel.edge_tilt).abs() < 0.01);
+    assert!((bottom_left.y - bottom_right.y - panel.edge_tilt).abs() < 0.01);
+    assert!((top_left.x - bottom_left.x).abs() < 0.01);
+    assert!((top_right.x - bottom_right.x).abs() < 0.01);
+}

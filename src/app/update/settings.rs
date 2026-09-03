@@ -413,8 +413,19 @@ fn choice_count(control: &Control) -> usize {
     }
 }
 
-fn initial_choice(control: &Control) -> usize {
+fn choice_enabled(control: &Control, index: usize) -> bool {
     match control {
+        Control::Dropdown { options, .. } => index < options.len(),
+        Control::Chips { options, disabled, .. } => {
+            options.get(index).is_some_and(|(key, _)| !disabled.contains(key))
+        }
+        Control::Presets { items, .. } => index < 1 + items.len() * 2,
+        _ => false,
+    }
+}
+
+fn initial_choice(control: &Control) -> usize {
+    let current = match control {
         Control::Dropdown { options, current, .. } => {
             options.iter().position(|(key, _)| key == current).unwrap_or(0)
         }
@@ -425,7 +436,25 @@ fn initial_choice(control: &Control) -> usize {
             items.iter().position(|(_, active)| *active).map_or(0, |index| 1 + index * 2)
         }
         _ => 0,
+    };
+    if choice_enabled(control, current) {
+        current
+    } else {
+        (0..choice_count(control)).find(|index| choice_enabled(control, *index)).unwrap_or(0)
     }
+}
+
+fn next_choice(control: &Control, current: usize, forwards: bool) -> Option<usize> {
+    let count = choice_count(control);
+    (1..=count)
+        .map(|step| {
+            if forwards {
+                (current + step) % count
+            } else {
+                (current + count - step % count) % count
+            }
+        })
+        .find(|index| choice_enabled(control, *index))
 }
 
 fn move_settings_tab(app: &mut App, delta: isize) -> Task<Message> {
@@ -639,8 +668,7 @@ fn move_settings_choice(app: &mut App, forwards: bool) -> Task<Message> {
         return Task::none();
     }
     let current = app.panels.settings.focused_choice.unwrap_or_else(|| initial_choice(&control));
-    app.panels.settings.focused_choice =
-        Some(if forwards { (current + 1) % count } else { (current + count - 1) % count });
+    app.panels.settings.focused_choice = next_choice(&control, current, forwards);
     app.retick();
     Task::none()
 }
@@ -696,17 +724,18 @@ fn activate_settings_control(app: &mut App) -> Task<Message> {
                 .get(choice)
                 .map_or_else(Task::none, |(value, _)| settings_pick(app, &path, value))
         }
-        Control::Chips { path, options, current } => {
+        Control::Chips { path, options, current, disabled } => {
             let Some(choice) = app.panels.settings.focused_choice else {
                 app.panels.settings.focused_choice =
-                    Some(options.iter().position(|(key, _)| *key == current).unwrap_or(0));
+                    Some(initial_choice(&Control::Chips { path, options, current, disabled }));
                 app.retick();
                 return Task::none();
             };
             app.panels.settings.focused_choice = None;
-            options
-                .get(choice)
-                .map_or_else(Task::none, |(value, _)| settings_pick(app, &path, value))
+            let Some((value, _)) = options.get(choice) else {
+                return Task::none();
+            };
+            if disabled.contains(value) { Task::none() } else { settings_pick(app, &path, value) }
         }
         Control::ActionBtn { id, .. } => settings_run(app, id),
         Control::Presets { mode, items } => {

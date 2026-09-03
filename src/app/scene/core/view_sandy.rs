@@ -152,6 +152,7 @@ impl SceneCore {
                 hw: shw,
                 hh: shh,
                 skew: params.skew,
+                edge_tilt: 0.0,
                 radii: params.corners,
                 hex: false,
                 view: 1,
@@ -182,8 +183,16 @@ impl SceneCore {
     ) {
         let [cx, cy] = center;
         let [chw, chh] = hero;
-        let mut big =
-            self.body_instance(ctx, wanted, cur_store, [cx, cy, chw, chh], [0.0; 4], 0.0, true);
+        let mut big = self.body_instance(
+            ctx,
+            wanted,
+            cur_store,
+            [cx, cy, chw, chh],
+            [0.0; 4],
+            0.0,
+            0.0,
+            true,
+        );
         big.params[2] = opacity;
         if self.card.flipped == Some(self.current) {
             let phases = card_flip_phases(
@@ -200,6 +209,7 @@ impl SceneCore {
                 chw,
                 chh,
                 0.0,
+                0.0,
                 [0.0; 4],
                 self.card.flip.x,
             ));
@@ -212,6 +222,7 @@ impl SceneCore {
             hw: chw,
             hh: chh,
             skew: 0.0,
+            edge_tilt: 0.0,
             hex: false,
             hex_shape: HexShape::default(),
             triangle_direction: 0,

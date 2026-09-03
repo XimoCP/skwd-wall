@@ -7,7 +7,7 @@ mod signature;
 
 #[cfg(test)]
 use back::back_rise;
-pub use back::{BackLayout, back_layout};
+pub use back::{BackLayout, back_bounds, back_contains, back_layout};
 pub use canvas::ChromeCanvas;
 pub use panel::{ChamferPanel, PANEL_SKEW};
 pub use selection::SelectionMarks;

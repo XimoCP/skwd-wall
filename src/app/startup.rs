@@ -229,6 +229,7 @@ pub(crate) fn layout_params(config: &Config) -> LayoutParams {
         slice_h: config.slice_height(),
         spacing: config.slice_spacing(),
         skew: config.skew_offset(),
+        edge_tilt: config.slice_edge_tilt(),
         visible_count: config.visible_count(),
         corners: config.slice_corners(),
         wobble: config.slice_wobble(),

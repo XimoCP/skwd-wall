@@ -143,13 +143,23 @@ impl SceneCore {
         self.motion.needs_frame = true;
     }
 
-    pub fn reset_to_start(&mut self, _count: usize) {
+    pub fn reset_to_start(&mut self, count: usize) {
+        self.reset_to_index(0, count);
+    }
+
+    pub fn reset_to_index(&mut self, idx: usize, count: usize) {
         self.card.widths.clear();
         self.card.hex_scales.clear();
         self.card.selection.clear();
-        self.current = 0;
+        self.current = idx.min(count.saturating_sub(1));
+        self.hex_row = self.current % self.hp.rows.max(1);
         self.hover = None;
-        self.camera.snap(self.start_camera());
+        if self.mode == Mode::Sandy {
+            self.camera.snap(crate::frontend::scene::sandy::clamp_cam(self.current as f32, count));
+        } else {
+            self.camera.snap(self.start_camera());
+            self.layout_camera_anchor = matches!(self.mode, Mode::Slices | Mode::Hex);
+        }
         self.motion.needs_frame = true;
     }
 

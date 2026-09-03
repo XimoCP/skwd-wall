@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde_json::Value;
 
 use crate::domain::library::filter::Filters;
@@ -17,6 +19,12 @@ pub(crate) struct DemoSession {
     pub(crate) opening_blur_source: Option<String>,
     pub(crate) opening_blur_resolved: bool,
     pub(crate) apply_source: Option<String>,
+    pub(crate) effect_previews: HashMap<String, String>,
+    pub(crate) overridden_outputs: Vec<crate::contracts::daemon::OutputStatus>,
+    pub(crate) overrides_active: bool,
+    pub(crate) override_next_apply: bool,
+    pub(crate) audio_demo_volume: Option<u32>,
+    pub(crate) scroll_rate: f32,
     pub(crate) batch_id: Option<String>,
     pub(crate) batch_commands: Vec<String>,
 }

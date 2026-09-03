@@ -153,7 +153,7 @@ fn control_search_text(control: &Control) -> String {
                 .join(" "),
             tr("settings-search-control-dropdown")
         ),
-        Control::Chips { path, options, current } => format!(
+        Control::Chips { path, options, current, .. } => format!(
             "{path} {current} {} {}",
             options
                 .iter()

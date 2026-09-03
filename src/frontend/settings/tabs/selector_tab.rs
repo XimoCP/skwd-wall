@@ -20,6 +20,7 @@ pub(super) fn tab_selector(builder: &mut Builder<'_>) {
                 .map(|value| ((*value).to_string(), tr(mode_label_key(value)).to_string()))
                 .collect(),
             current: display_mode.to_string(),
+            disabled: Vec::new(),
         },
     );
     let filter_speed = match cfg.text(keys::motion::FILTER_SWAP_SPEED).as_str() {
@@ -466,6 +467,12 @@ pub(super) fn tab_selector(builder: &mut Builder<'_>) {
                 "px",
             );
             builder.num(tr("settings-selector-skew-label"), "", keys::selector::SKEW_OFFSET, "");
+            builder.num(
+                tr("settings-selector-edge-tilt-label"),
+                tr("settings-selector-edge-tilt-desc"),
+                keys::selector::SLICE_EDGE_TILT,
+                "px",
+            );
             builder.toggle(
                 tr("settings-selector-wobble-label"),
                 tr("settings-selector-wobble-desc"),

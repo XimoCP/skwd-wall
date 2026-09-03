@@ -224,6 +224,7 @@ impl SceneCore {
                 hw: hp.item_half_w() * ps,
                 hh: hp.item_half_h() * ps,
                 skew: 0.0,
+                edge_tilt: 0.0,
                 radii: [0.0; 4],
                 hex: true,
                 view: 2,

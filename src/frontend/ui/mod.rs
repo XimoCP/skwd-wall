@@ -23,7 +23,8 @@ pub use chips::{
     TagChips, chip_width, pl_chip, skwd_chip, tag_cloud_body_height, tag_cloud_row_count,
 };
 pub use chrome::{
-    BackLayout, ChromeCanvas, PANEL_SKEW, SelectionMarks, back_layout, chrome_signature,
+    BackLayout, ChromeCanvas, PANEL_SKEW, SelectionMarks, back_bounds, back_contains, back_layout,
+    chrome_signature,
 };
 pub use color::{
     color_bucket_name, cycle_color_left, cycle_color_right, parse_color_bucket, strip_bucket,

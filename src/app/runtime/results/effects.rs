@@ -9,6 +9,7 @@ impl App {
         &mut self,
         result: crate::contracts::daemon::EffectOperationResult,
         source: &str,
+        cache_key: &str,
     ) {
         let output = result.output;
         if self.panels.effects.as_ref().is_none_or(|effects| effects.source_path() != source) {
@@ -17,13 +18,19 @@ impl App {
             }
             return;
         }
+        if !output.is_empty()
+            && !cache_key.is_empty()
+            && let Some(session) = self.runtime_state.demo.as_mut()
+        {
+            session.effect_previews.insert(cache_key.to_string(), output.clone());
+        }
         let (dirty, stale) = if let Some(eff) = self.panels.effects.as_mut() {
             eff.finish_preview_request(&output)
         } else {
             (false, None)
         };
         if let Some(path) = stale {
-            self.daemon.client.call("effects.discard", json!({ "preview": path }));
+            self.discard_effect_preview(&path);
         }
         if dirty {
             effects_do_preview(self);
@@ -42,7 +49,7 @@ impl App {
             None
         };
         if let Some(path) = stale {
-            self.daemon.client.call("effects.discard", json!({ "preview": path }));
+            self.discard_effect_preview(&path);
         }
         if apply && !output.is_empty() {
             self.daemon.client.call(
@@ -60,5 +67,17 @@ impl App {
             self.daemon.effect_themes = options;
         }
         info!("effect themes loaded: {}", self.daemon.effect_themes.len());
+    }
+}
+
+impl App {
+    pub(in crate::app) fn discard_effect_preview(&mut self, path: &str) {
+        let cached =
+            self.runtime_state.demo.as_ref().is_some_and(|session| {
+                session.effect_previews.values().any(|preview| preview == path)
+            });
+        if !cached {
+            self.daemon.client.call("effects.discard", json!({ "preview": path }));
+        }
     }
 }

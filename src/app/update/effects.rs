@@ -327,7 +327,7 @@ pub(super) fn toggle_effects(app: &mut App) -> Task<Message> {
 
 pub(super) fn discard_effect_previews(app: &mut App, eff: crate::frontend::effects::Effects) {
     for path in eff.discardable_previews() {
-        app.daemon.client.call("effects.discard", json!({ "preview": path }));
+        app.discard_effect_preview(&path);
     }
 }
 
@@ -456,10 +456,11 @@ pub(crate) fn effects_do_preview(app: &mut App) {
     if let Some(eff) = app.panels.effects.as_mut() {
         eff.begin_request();
     }
+    let cache_key = serde_json::to_string(&effects).unwrap_or_default();
     app.call_tracked(
         "effects.preview",
         json!({ "input": input, "effects": effects }),
-        Pending::EffectsPreview { source: input },
+        Pending::EffectsPreview { source: input, cache_key },
     );
 }
 

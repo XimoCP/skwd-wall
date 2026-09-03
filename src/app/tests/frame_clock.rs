@@ -220,6 +220,7 @@ fn browser_hover_fade_releases() {
             hw: 50.0,
             hh: 50.0,
             skew: 0.0,
+            edge_tilt: 0.0,
             hex: false,
             hex_shape: crate::frontend::scene::layout::HexShape::Hexagon,
             triangle_direction: 0,

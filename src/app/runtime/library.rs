@@ -9,6 +9,18 @@ use crate::rendering::scene::atlas::AtlasMap;
 use super::super::*;
 
 impl App {
+    pub(in crate::app) fn demo_showcase_index(&self, count: usize) -> usize {
+        if self.runtime_state.demo.is_none() || count == 0 {
+            return 0;
+        }
+        if self.scene.mode == Mode::Hex {
+            let rows = self.config.hex_rows();
+            let cols = self.config.hex_cols();
+            return ((cols / 2) * rows + rows / 2).min(count / 2);
+        }
+        (count / 2).min(6)
+    }
+
     pub(in crate::app) fn on_list(&mut self, catalog: crate::domain::library::catalog::Catalog) {
         self.library_session.library.replace(catalog);
         if (self.tags.editing || self.tags.card_drawer_open)
@@ -105,7 +117,8 @@ impl App {
         let list_before = std::mem::take(&mut self.library_session.filtered);
         self.library_session.filtered = self.filtered_indices();
         self.library_session.visible_count = self.library_session.filtered.len();
-        self.scene.reset_to_start(self.library_session.filtered.len());
+        let count = self.library_session.filtered.len();
+        self.scene.reset_to_index(self.demo_showcase_index(count), count);
         if self.library_session.filtered != list_before && !self.library_session.filtered.is_empty()
         {
             self.scene.filter_storm(sandy_from);
@@ -120,7 +133,8 @@ impl App {
         if self.scene.mode == Mode::Sandy {
             self.scene.sandy_settle_now();
         }
-        self.scene.reset_to_start(self.library_session.filtered.len());
+        let count = self.library_session.filtered.len();
+        self.scene.reset_to_index(self.demo_showcase_index(count), count);
         if self.library_session.filtered != list_before && !self.library_session.filtered.is_empty()
         {
             self.scene.filter_storm(None);

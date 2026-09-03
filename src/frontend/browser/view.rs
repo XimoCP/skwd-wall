@@ -745,6 +745,7 @@ pub fn view<'a>(
         cache: wall_chrome_cache,
         overview_set: false,
         show_type_badges: false,
+        show_video_indicators: true,
         fade: ease,
     })
     .width(Length::Fill)

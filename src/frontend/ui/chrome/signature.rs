@@ -8,7 +8,16 @@ pub fn chrome_signature(chrome: &[Chrome], back: Option<&BackPanel>, palette: &P
     hasher.write_usize(chrome.len());
     for item in chrome {
         hasher.write_u8(item.view);
-        for value in [item.cx, item.cy, item.hw, item.hh, item.skew, item.radius, item.opacity] {
+        for value in [
+            item.cx,
+            item.cy,
+            item.hw,
+            item.hh,
+            item.skew,
+            item.edge_tilt,
+            item.radius,
+            item.opacity,
+        ] {
             hasher.write_u32(value.to_bits());
         }
         hasher.write_u8(item.kind);
@@ -19,7 +28,7 @@ pub fn chrome_signature(chrome: &[Chrome], back: Option<&BackPanel>, palette: &P
         None => hasher.write_u8(0),
         Some(panel) => {
             hasher.write_u8(1);
-            for value in [panel.cx, panel.cy, panel.hw, panel.hh, panel.skew] {
+            for value in [panel.cx, panel.cy, panel.hw, panel.hh, panel.skew, panel.edge_tilt] {
                 hasher.write_u32(value.to_bits());
             }
             for radius in panel.radii {

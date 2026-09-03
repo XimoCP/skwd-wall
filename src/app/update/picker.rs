@@ -163,9 +163,7 @@ fn remove_back_panel_tag(app: &mut App, fi: usize, x: f32, y: f32) -> bool {
         return false;
     };
     let lay = crate::frontend::ui::back_layout(&bp);
-    let within = |rect: (f32, f32, f32, f32)| {
-        x >= rect.0 && x <= rect.0 + rect.2 && y >= rect.1 && y <= rect.1 + rect.3
-    };
+    let within = |rect| crate::frontend::ui::back_contains(&bp, &lay, rect, x, y);
     let Some(ti) = lay.tags.iter().position(|&rect| within(rect)) else {
         return false;
     };
@@ -225,11 +223,9 @@ fn back_panel_click(app: &mut App, fi: usize, x: f32, y: f32) -> Task<Message> {
     let lay = crate::frontend::ui::back_layout(&bp);
     let key = app.library_session.library.catalog().items[si as usize].key.clone();
     let (fx, fy, _) = lay.fav;
-    let within = |rect: (f32, f32, f32, f32)| {
-        x >= rect.0 && x <= rect.0 + rect.2 && y >= rect.1 && y <= rect.1 + rect.3
-    };
+    let within = |rect| crate::frontend::ui::back_contains(&bp, &lay, rect, x, y);
 
-    if (x - fx).abs() <= 30.0 && (y - fy).abs() <= 26.0 {
+    if within((fx - 30.0, fy - 26.0, 60.0, 52.0)) {
         toggle_favourite(app, fi);
     } else if let Some(ti) = lay.tags.iter().position(|&rect| within(rect)) {
         remove_tag_at(app, &key, ti);
@@ -307,8 +303,16 @@ fn close_flip_or_apply(
         app.tags.editing = false;
     }
     app.tags.card_drawer_open = false;
-    let inside =
-        x >= bp.cx - bp.hw && x <= bp.cx + bp.hw && y >= bp.cy - bp.hh && y <= bp.cy + bp.hh;
+    let inside = crate::frontend::scene::layout::sheared_contains(
+        bp.cx,
+        bp.cy,
+        bp.hw,
+        bp.hh,
+        bp.skew,
+        bp.edge_tilt,
+        x,
+        y,
+    );
     app.scene.close_flip();
     app.retick();
     if inside { apply_task(app, fi) } else { Task::none() }

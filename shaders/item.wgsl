@@ -22,6 +22,7 @@ struct Instance {
     @location(7) crop: vec4<f32>,
     @location(8) misc: vec4<u32>,
     @location(9) flip: vec4<f32>,
+    @location(10) shape: vec4<f32>,
 }
 
 struct VsOut {
@@ -38,6 +39,7 @@ struct VsOut {
     @location(9) @interpolate(flat) misc: vec4<u32>,
     @location(10) world: vec2<f32>,
     @location(11) flip: vec4<f32>,
+    @location(12) shape: vec4<f32>,
 }
 
 @vertex
@@ -69,16 +71,26 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> VsOut {
     out.misc = inst.misc;
     out.world = world;
     out.flip = inst.flip;
+    out.shape = inst.shape;
     return out;
 }
 
-fn sd_sheared_rounded_box(p: vec2<f32>, b_in: vec2<f32>, radii: vec4<f32>, skew: f32) -> f32 {
-    let s = skew * 0.5;
-    var q = p;
-    if (b_in.y > 0.0) {
-        q.x = p.x + s * (p.y / b_in.y);
-    }
-    let b = vec2(max(b_in.x - abs(s), 1.0), b_in.y);
+fn sd_sheared_rounded_box(
+    p: vec2<f32>,
+    b_in: vec2<f32>,
+    radii: vec4<f32>,
+    skew: f32,
+    edge_tilt: f32,
+) -> f32 {
+    let sx = skew * 0.5;
+    let ty = edge_tilt * 0.5;
+    let b = max(b_in - abs(vec2(sx, ty)), vec2(1.0));
+    let det = b.x * b.y - sx * ty;
+    let safe_det = select(det, select(-1.0, 1.0, det >= 0.0), abs(det) < 1.0);
+    let q = vec2(
+        (b.y * p.x + sx * p.y) / safe_det * b.x,
+        (ty * p.x + b.x * p.y) / safe_det * b.y,
+    );
     let top = q.y < 0.0;
     let left = q.x < 0.0;
     var r: f32;
@@ -371,7 +383,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     if ((in.misc.w & 64u) == 64u) {
         let blur = max(border_w, 1.0);
         let he = max(in.half_ext - vec2(blur * 0.8), vec2(1.0));
-        let ds = sd_sheared_rounded_box(in.local, he, in.radii, 0.0);
+        let ds = sd_sheared_rounded_box(in.local, he, in.radii, 0.0, 0.0);
         let sa = in.fill.a * pow(clamp(1.0 - (ds + blur * 0.2) / blur, 0.0, 1.0), 1.7) * opacity;
         let vfs = clamp(globals.vis, 0.0, 1.0);
         return vec4(in.fill.rgb * sa * vfs, sa * vfs);
@@ -389,7 +401,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
             d = sd_hexagon_flat(in.local, in.half_ext.x);
         }
     } else {
-        d = sd_sheared_rounded_box(in.local, in.half_ext, in.radii, skew);
+        d = sd_sheared_rounded_box(in.local, in.half_ext, in.radii, skew, in.shape.x);
     }
     let grad = max(length(vec2(dpdx(d), dpdy(d))), 0.0001);
     let shape_a = clamp(0.5 - d / grad, 0.0, 1.0);
@@ -404,7 +416,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         let yn = clamp(loc.y / max(hh, 1.0), -1.35, 1.35);
         loc.x -= bend * hw * 0.5 * yn * yn;
         loc.y *= 1.0 + abs(bend) * 0.12 * (1.0 - clamp(abs(loc.x / max(hw, 1.0)), 0.0, 1.0));
-        let d2 = sd_sheared_rounded_box(loc, vec2(hw, hh), in.radii, skew);
+        let d2 = sd_sheared_rounded_box(loc, vec2(hw, hh), in.radii, skew, in.shape.x);
         let grad2 = max(length(vec2(dpdx(d2), dpdy(d2))), 0.0001);
         let sa = clamp(0.5 - d2 / grad2, 0.0, 1.0);
         var norm = clamp(loc / (2.0 * vec2(hw, hh)) + vec2(0.5), vec2(0.0), vec2(1.0));

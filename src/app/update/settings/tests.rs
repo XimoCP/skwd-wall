@@ -1,5 +1,5 @@
-use super::{ARRAY_ACTIONS, remove_index};
-use crate::frontend::settings::ActionId;
+use super::{ARRAY_ACTIONS, choice_enabled, initial_choice, next_choice, remove_index};
+use crate::frontend::settings::{ActionId, Control};
 
 fn variant_name(id: ActionId) -> String {
     format!("{id:?}").split('(').next().unwrap_or_default().to_string()
@@ -44,4 +44,23 @@ fn destructive_actions_arm() {
     for id in [ActionId::RecomputeColors, ActionId::RefreshBackdrop, ActionId::ResetMotionSlow] {
         assert!(!id.is_destructive(), "{id:?}");
     }
+}
+
+#[test]
+fn disabled_choices_are_skipped_by_keyboard_navigation() {
+    let control = Control::Chips {
+        path: String::from("paper.videoEngine"),
+        options: vec![
+            (String::from("vulkan"), String::from("Vulkan")),
+            (String::from("tinier"), String::from("Tinier")),
+        ],
+        current: String::from("tinier"),
+        disabled: vec![String::from("tinier")],
+    };
+
+    assert_eq!(initial_choice(&control), 0);
+    assert_eq!(next_choice(&control, 0, true), Some(0));
+    assert_eq!(next_choice(&control, 0, false), Some(0));
+    assert!(choice_enabled(&control, 0));
+    assert!(!choice_enabled(&control, 1));
 }

@@ -7,7 +7,7 @@ pub enum Control {
     TextField { key: String, path: String, placeholder: &'static str },
     KeyBinding { key: String, path: String, default: &'static str },
     Dropdown { path: String, options: Vec<(String, String)>, current: String },
-    Chips { path: String, options: Vec<(String, String)>, current: String },
+    Chips { path: String, options: Vec<(String, String)>, current: String, disabled: Vec<String> },
     MotionWeights { weights: Vec<(String, String, ActionId)> },
     ActionBtn { id: ActionId, label: String },
     Presets { mode: String, items: Vec<(String, bool)> },

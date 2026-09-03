@@ -78,7 +78,7 @@ pub(crate) fn ui_state_json(app: &App) -> String {
         })
     });
     json!({
-        "demo_protocol": 14,
+        "demo_protocol": 15,
         "mode": mode,
         "count": app.library_session.filtered.len(),
         "current": app.scene.current,
@@ -208,6 +208,8 @@ pub(super) fn run_ui_command(app: &mut App, cmd: &str) -> Task<Message> {
         },
         "batch-stage" if app.runtime_state.demo.is_some() => ui_demo_batch_stage(app, &arg),
         "batch-commit" if app.runtime_state.demo.is_some() => ui_demo_batch_commit(app, &arg),
+        "audio-demo" if app.runtime_state.demo.is_some() => ui_demo_audio(app, &arg),
+        "effect-demo" if app.runtime_state.demo.is_some() => ui_demo_effect(app, &arg),
         "tune" => {
             let mut it = arg.splitn(2, char::is_whitespace);
             let path = it.next().unwrap_or("");
@@ -232,6 +234,16 @@ pub(super) fn run_ui_command(app: &mut App, cmd: &str) -> Task<Message> {
             Task::none()
         }
         "apply" => ui_demo_apply(app, &arg),
+        "restore-overrides" if app.runtime_state.demo.is_some() => {
+            restore_demo_overrides(app);
+            Task::none()
+        }
+        "override-next" if app.runtime_state.demo.is_some() => {
+            if let Some(session) = app.runtime_state.demo.as_mut() {
+                session.override_next_apply = true;
+            }
+            Task::none()
+        }
         "stage-blur" => ui_demo_stage_blur(app, &arg),
         "mode" => {
             let Some(mode) = Mode::try_from_key(&arg) else {
@@ -384,6 +396,8 @@ pub(super) fn run_ui_command(app: &mut App, cmd: &str) -> Task<Message> {
         ),
         "playlist-demo" => ui_demo_playlist(app, &arg),
         "schedule-demo" => ui_demo_schedule(app, &arg),
+        "scroll-demo" => ui_demo_scroll(app, &arg),
+        "preset" => ui_preset(app, &arg),
         "dismiss" => {
             app.close_topmost_overlay();
             Task::none()
@@ -418,6 +432,25 @@ pub(super) fn run_ui_command(app: &mut App, cmd: &str) -> Task<Message> {
             Task::none()
         }
     }
+}
+
+fn ui_preset(app: &mut App, arg: &str) -> Task<Message> {
+    let mut parts = arg.splitn(2, char::is_whitespace);
+    let action = parts.next().unwrap_or("");
+    let name = parts.next().unwrap_or("").trim();
+    if action != "save" || name.is_empty() {
+        log::warn!("ui command: usage 'preset save <name>'");
+        return Task::none();
+    }
+    let mode = app.config.selector_mode();
+    app.config.save_selector_preset(&mode, name);
+    app.panels
+        .settings
+        .inputs
+        .insert(crate::frontend::settings::PRESET_NAME_KEY.to_string(), name.to_string());
+    app.invalidate_settings();
+    app.retick();
+    Task::none()
 }
 
 fn ui_tag_edit(app: &mut App, arg: &str) -> Task<Message> {
@@ -572,6 +605,24 @@ fn ui_open(app: &mut App, arg: &str) -> Task<Message> {
                     ),
                 ])
             }
+        }
+        "effects-cached" if app.runtime_state.demo.is_some() => {
+            if app.panels.settings.open {
+                app.close_settings();
+            }
+            let effect = arg["effects-cached".len()..].trim();
+            crate::app::helpers::open_effects_without_preview(
+                app,
+                app.scene.current,
+                crate::frontend::effects::EffectsMode::Studio,
+            );
+            if !effect.is_empty()
+                && let Some(effects) = app.panels.effects.as_mut()
+            {
+                effects.select_effect(effect.to_string());
+            }
+            app.retick();
+            Task::none()
         }
         "displays" => {
             if let Some(effects) = app.panels.effects.as_mut() {
@@ -950,6 +1001,120 @@ fn ui_demo_schedule(app: &mut App, raw: &str) -> Task<Message> {
     }
 }
 
+fn ui_demo_audio(app: &mut App, raw: &str) -> Task<Message> {
+    let mut parts = raw.split_whitespace();
+    let action = parts.next().unwrap_or("");
+    let Some(volume) = parts.next().and_then(|value| value.parse::<u32>().ok()) else {
+        log::warn!("ui command: 'audio-demo volume' needs a value from 0 to 100");
+        return Task::none();
+    };
+    if action != "volume" || volume > 100 {
+        log::warn!("ui command: usage 'audio-demo volume <0..100>'");
+        return Task::none();
+    }
+    if let Some(session) = app.runtime_state.demo.as_mut() {
+        session.audio_demo_volume = Some(volume);
+    }
+    let Some(panel) = app.panels.audio.as_mut() else {
+        log::warn!("ui command: 'audio-demo volume' needs an open mixer");
+        return Task::none();
+    };
+    let targets = panel
+        .mons
+        .iter()
+        .filter(|monitor| monitor.has_audio_controls())
+        .map(|monitor| monitor.name.clone())
+        .collect::<Vec<_>>();
+    for target in &targets {
+        panel.set_mon_volume(target, volume);
+        panel.set_mon_mute(target, true);
+    }
+    app.config.set_key(skwd_config::keys::wallpaper::MUTE, json!(true));
+    app.daemon.client.call("wall.set_audio", json!({ "volume": 0, "mute": true }));
+    app.panels.audio_playing = false;
+    app.chrome.bar.cache.clear();
+    app.retick();
+    Task::none()
+}
+
+fn ui_demo_effect(app: &mut App, raw: &str) -> Task<Message> {
+    let mut parts = raw.splitn(3, char::is_whitespace);
+    let action = parts.next().unwrap_or("");
+    let parameter = parts.next().unwrap_or("");
+    let value = parts.next().unwrap_or("").trim();
+    if !matches!(action, "choice" | "show") || parameter.is_empty() || value.is_empty() {
+        log::warn!("ui command: usage 'effect-demo <choice|show> <parameter> <value>'");
+        return Task::none();
+    }
+    let Some(effects) = app.panels.effects.as_ref() else {
+        log::warn!("ui command: 'effect-demo {action}' needs an open Effects panel");
+        return Task::none();
+    };
+    let valid = effects.selected().is_some_and(|effect| {
+        effect.params.iter().any(|candidate| {
+            candidate.id == parameter
+                && matches!(candidate.kind, crate::domain::effects::EffectParamKind::Dropdown)
+                && candidate.options.iter().any(|option| option.mode == value)
+        })
+    });
+    if !valid {
+        log::warn!("ui command: Effects choice '{parameter}={value}' is not available");
+        return Task::none();
+    }
+    if action == "choice" {
+        return super::update_inner(
+            app,
+            Message::Effects(crate::frontend::effects::EffectsMsg::SetChoice(
+                parameter.to_string(),
+                value.to_string(),
+            )),
+        );
+    }
+
+    let cache_key = {
+        let effects = app.panels.effects.as_mut().expect("validated above");
+        effects.set_str(parameter, value.to_string());
+        serde_json::to_string(&crate::infrastructure::effects::encode_steps(
+            &effects.preview_effects(),
+        ))
+        .unwrap_or_default()
+    };
+    let cached = app
+        .runtime_state
+        .demo
+        .as_ref()
+        .and_then(|session| session.effect_previews.get(&cache_key))
+        .cloned();
+    if let Some(path) = cached {
+        let stale = app.panels.effects.as_mut().and_then(|effects| effects.begin_fade(path));
+        if let Some(path) = stale {
+            app.discard_effect_preview(&path);
+        }
+        app.retick();
+        Task::none()
+    } else {
+        log::warn!("ui command: cached Effects choice '{parameter}={value}' is not ready");
+        super::effects::effects_request_preview(app);
+        Task::none()
+    }
+}
+
+fn capture_demo_outputs(app: &mut App) {
+    let snapshot = app
+        .daemon
+        .output_statuses
+        .iter()
+        .filter(|output| output.is_connected())
+        .cloned()
+        .collect::<Vec<_>>();
+    if let Some(session) = app.runtime_state.demo.as_mut() {
+        if session.overridden_outputs.is_empty() {
+            session.overridden_outputs = snapshot;
+        }
+        session.overrides_active = true;
+    }
+}
+
 fn ui_tune(app: &mut App, path: &str, val: &str) -> Task<Message> {
     if app.runtime_state.demo.is_none() {
         log::warn!("ui command: 'tune' requires an active demo session");
@@ -993,6 +1158,29 @@ fn ui_motion(app: &mut App, raw: &str) -> Task<Message> {
     Task::none()
 }
 
+fn ui_demo_scroll(app: &mut App, raw: &str) -> Task<Message> {
+    let Some(session) = app.runtime_state.demo.as_mut() else {
+        log::warn!("ui command: 'scroll-demo' requires an active demo session");
+        return Task::none();
+    };
+    let rate = if raw == "stop" {
+        0.0
+    } else {
+        let Ok(rate) = raw.parse::<f32>() else {
+            log::warn!("ui command: usage 'scroll-demo <walls-per-second|stop>'");
+            return Task::none();
+        };
+        if !rate.is_finite() {
+            log::warn!("ui command: scroll rate must be finite");
+            return Task::none();
+        }
+        rate.clamp(-12.0, 12.0)
+    };
+    session.scroll_rate = rate;
+    app.retick();
+    Task::none()
+}
+
 fn ui_recolour(app: &mut App, name: &str) -> Task<Message> {
     if app.runtime_state.demo.is_none() {
         log::warn!("ui command: 'recolour' requires an active demo session");
@@ -1029,9 +1217,15 @@ fn ui_demo_apply(app: &mut App, raw: &str) -> Task<Message> {
     let output = args.next().unwrap_or("");
     let shader = args.next().unwrap_or("inkwell-drop");
     let duration_ms = args.next().and_then(|raw| raw.parse::<u64>().ok()).unwrap_or(220);
+    let override_locks = app
+        .runtime_state
+        .demo
+        .as_mut()
+        .is_some_and(|session| std::mem::take(&mut session.override_next_apply));
     if output.is_empty()
         || !crate::frontend::settings::SHADERS.contains(&shader)
         || !(50..=10_000).contains(&duration_ms)
+        || args.next().is_some()
     {
         log::warn!("ui command: usage 'apply <output> [transition-shader] [50..10000ms]'");
         return Task::none();
@@ -1045,18 +1239,69 @@ fn ui_demo_apply(app: &mut App, raw: &str) -> Task<Message> {
         return Task::none();
     }
     let mut params = crate::app::helpers::apply_params(item, Vec::new());
+    let item_path = item.path.clone();
     params["output"] = json!(output);
     params["transition"] = json!(true);
     params["transition_shader"] = json!(shader);
     params["transition_duration_ms"] = json!(duration_ms);
     params["notify"] = json!(false);
+    if override_locks {
+        capture_demo_outputs(app);
+        params["override_locks"] = json!(true);
+    }
     if let Some(session) = app.runtime_state.demo.as_mut()
-        && session.opening_blur_source.as_deref() == Some(item.path.as_str())
+        && session.opening_blur_source.as_deref() == Some(item_path.as_str())
     {
         session.opening_blur_resolved = true;
     }
     app.daemon.client.call("wall.apply", params);
     Task::none()
+}
+
+fn restore_output_snapshots(app: &mut App, outputs: &[crate::contracts::daemon::OutputStatus]) {
+    for output in outputs {
+        let mut params = json!({
+            "type": output.kind.as_key(),
+            "output": output.target(),
+            "notify": false,
+            "no_transition": true,
+            "override_locks": true,
+        });
+        match output.kind {
+            crate::contracts::media::MediaKind::WallpaperEngine if !output.we_id.is_empty() => {
+                params["we_id"] = json!(output.we_id);
+                params["mute"] = json!(output.mute);
+                params["volume"] = json!(output.volume);
+            }
+            crate::contracts::media::MediaKind::Video => {
+                let path = if output.current.is_empty() { &output.path } else { &output.current };
+                if path.is_empty() {
+                    continue;
+                }
+                params["path"] = json!(path);
+                params["mute"] = json!(output.mute);
+                params["volume"] = json!(output.volume);
+            }
+            crate::contracts::media::MediaKind::Static => {
+                let path = if output.current.is_empty() { &output.path } else { &output.current };
+                if path.is_empty() {
+                    continue;
+                }
+                params["path"] = json!(path);
+            }
+            crate::contracts::media::MediaKind::Other(_)
+            | crate::contracts::media::MediaKind::WallpaperEngine => continue,
+        }
+        app.daemon.client.call("wall.apply", params);
+    }
+}
+
+fn restore_demo_overrides(app: &mut App) {
+    let outputs = app.runtime_state.demo.as_mut().map_or_else(Vec::new, |session| {
+        session.overrides_active = false;
+        std::mem::take(&mut session.overridden_outputs)
+    });
+    restore_output_snapshots(app, &outputs);
 }
 
 fn ui_demo_stage_blur(app: &mut App, raw: &str) -> Task<Message> {
@@ -1081,8 +1326,12 @@ fn ui_demo_stage_blur(app: &mut App, raw: &str) -> Task<Message> {
         return Task::none();
     }
     let source = item.path.clone();
-    let output = std::env::temp_dir()
-        .join(format!("skwd-wall-demo-{}-opening-blur.png", std::process::id()));
+    let output_dir = std::path::PathBuf::from(app.config.cache_dir()).join("demo");
+    if let Err(error) = std::fs::create_dir_all(&output_dir) {
+        log::warn!("ui command: could not prepare demo cache for opening wallpaper blur: {error}");
+        return Task::none();
+    }
+    let output = output_dir.join(format!("opening-blur-{}.png", std::process::id()));
     let blurred = match image::open(&source) {
         Ok(image) => image::imageops::blur(&image.into_rgba8(), radius),
         Err(error) => {
@@ -1341,13 +1590,25 @@ fn select_key(app: &mut App, key: &str) -> Task<Message> {
         app.retick();
         return Task::none();
     };
-    let Some(filtered_index) = demo_visible_card(app, store_index) else {
+    let Some(mut filtered_index) = demo_visible_card(app, store_index) else {
         app.show_toast(crate::i18n::tr_args!("status-demo-filtered", key => key));
         app.retick();
         return Task::none();
     };
     app.scene.kb_nav = true;
-    app.scene.set_current(filtered_index, app.library_session.filtered.len());
+    let count = app.library_session.filtered.len();
+    if app.runtime_state.demo.is_some() && count > 2 {
+        let showcase_index = app.demo_showcase_index(count);
+        if filtered_index < showcase_index {
+            app.library_session.filtered.rotate_right(showcase_index - filtered_index);
+        } else if filtered_index > showcase_index {
+            app.library_session.filtered.rotate_left(filtered_index - showcase_index);
+        }
+        filtered_index = showcase_index;
+        app.scene.reset_to_index(filtered_index, count);
+    } else {
+        app.scene.set_current(filtered_index, count);
+    }
     app.retick();
     Task::none()
 }
@@ -1358,6 +1619,13 @@ fn close_all_overlays(app: &mut App) {
 
 fn demo_begin(app: &mut App) -> Task<Message> {
     if app.runtime_state.demo.is_none() {
+        let output_snapshot = app
+            .daemon
+            .output_statuses
+            .iter()
+            .filter(|output| output.is_connected())
+            .cloned()
+            .collect();
         let session = DemoSession {
             config: app.config.begin_transient(),
             filters: app.library_session.filters.clone(),
@@ -1372,11 +1640,18 @@ fn demo_begin(app: &mut App) -> Task<Message> {
             opening_blur_source: None,
             opening_blur_resolved: false,
             apply_source: None,
+            effect_previews: std::collections::HashMap::new(),
+            overridden_outputs: output_snapshot,
+            overrides_active: false,
+            override_next_apply: false,
+            audio_demo_volume: None,
+            scroll_rate: 0.0,
             batch_id: None,
             batch_commands: Vec::new(),
         };
         app.runtime_state.demo = Some(session);
     }
+    app.call_tracked("wall.outputs", json!({}), Pending::DemoOutputs);
     close_all_overlays(app);
     app.tags.tag_search.clear();
     app.tags.semantic.search.clear();
@@ -1384,7 +1659,8 @@ fn demo_begin(app: &mut App) -> Task<Message> {
     app.refilter();
     app.chrome.filter_bar_visible = true;
     app.chrome.bar.cache.clear();
-    app.scene.set_current(0, app.library_session.filtered.len());
+    let count = app.library_session.filtered.len();
+    app.scene.reset_to_index(app.demo_showcase_index(count), count);
     app.retick();
     Task::none()
 }
@@ -1411,7 +1687,18 @@ fn demo_end(app: &mut App) -> Task<Message> {
         let _ = std::fs::remove_file(path);
     }
     close_all_overlays(app);
+    restore_output_snapshots(app, &session.overridden_outputs);
+    for path in session.effect_previews.values().collect::<std::collections::HashSet<_>>() {
+        app.daemon.client.call("effects.discard", json!({ "preview": path }));
+    }
     app.config.restore_transient(session.config);
+    app.daemon.client.call(
+        "wall.set_audio",
+        json!({
+            "volume": app.config.wallpaper_volume(),
+            "mute": app.config.wallpaper_mute(),
+        }),
+    );
     app.library_session.filters = session.filters;
     app.tags.tag_search = session.query;
     app.tags.semantic.search.clear();

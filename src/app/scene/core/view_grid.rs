@@ -246,6 +246,7 @@ impl SceneCore {
                 hw,
                 hh,
                 skew: 0.0,
+                edge_tilt: 0.0,
                 radii: [body_radius; 4],
                 hex: false,
                 view: 1,

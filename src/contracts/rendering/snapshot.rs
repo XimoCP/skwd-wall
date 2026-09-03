@@ -13,6 +13,7 @@ pub struct InstanceRaw {
     pub(crate) crop: [f32; 4],
     pub(crate) misc: [u32; 4],
     pub(crate) flip: [f32; 4],
+    pub(crate) shape: [f32; 4],
 }
 
 impl Default for InstanceRaw {
@@ -28,6 +29,7 @@ impl Default for InstanceRaw {
             crop: [0.0, 0.0, 1.0, 1.0],
             misc: [0; 4],
             flip: [0.0; 4],
+            shape: [0.0; 4],
         }
     }
 }

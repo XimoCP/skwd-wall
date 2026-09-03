@@ -83,6 +83,7 @@ fn test_scene(mode: Mode) -> SceneCore {
         slice_h: 120.0,
         spacing: 8.0,
         skew: 0.0,
+        edge_tilt: 0.0,
         visible_count: 5,
         corners: [8.0; 4],
         wobble: false,
@@ -1539,6 +1540,7 @@ fn base_sp() -> SliceParams {
         slice_h: 120.0,
         spacing: 8.0,
         skew: 0.0,
+        edge_tilt: 0.0,
         visible_count: 5,
         corners: [0.0; 4],
         wobble: false,
@@ -1715,6 +1717,11 @@ fn appearance_settings_reach_render() {
     assert!(!sheared.hits.is_empty());
     assert_eq!(straight.hits[0].skew, 0.0);
     assert!(sheared.hits[0].skew.abs() > 0.0, "skew={}", sheared.hits[0].skew);
+
+    let tilted =
+        rendered_scene(Mode::Slices, SliceParams { edge_tilt: 48.0, ..base_sp() }, base_gp());
+    assert_eq!(tilted.hits[0].edge_tilt, 48.0);
+    assert_eq!(tilted.instances.last().expect("slice body").shape[0], 48.0);
 
     let sharp =
         rendered_scene(Mode::Slices, SliceParams { corners: [0.0; 4], ..base_sp() }, base_gp());

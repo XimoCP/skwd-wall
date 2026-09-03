@@ -61,6 +61,7 @@ impl ButtonFillState {
 struct ButtonFill {
     active: bool,
     destructive: bool,
+    enabled: bool,
     palette: Palette,
     fade: f32,
     motion: MotionProfile,
@@ -93,17 +94,23 @@ impl canvas::Program<Message> for ButtonFill {
         cursor: mouse::Cursor,
     ) -> Vec<canvas::Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
-        let hovered = cursor.is_over(bounds);
+        let hovered = self.enabled && cursor.is_over(bounds);
         frame.fill(
             &Path::rectangle(Point::ORIGIN, bounds.size()),
             if hovered {
                 with_alpha(self.palette.surface_variant, 0.78 * self.fade)
+            } else if !self.enabled {
+                with_alpha(self.palette.surface_container, 0.42 * self.fade)
             } else {
                 with_alpha(self.palette.surface_container, 0.92 * self.fade)
             },
         );
 
-        let mix = crate::frontend::animation::smoothstep(state.mix.clamp(0.0, 1.0));
+        let mix = if self.enabled {
+            crate::frontend::animation::smoothstep(state.mix.clamp(0.0, 1.0))
+        } else {
+            0.0
+        };
         if mix > 0.0 {
             let fill = if self.destructive {
                 with_alpha(self.palette.tertiary, 0.96 * self.fade)
@@ -134,9 +141,12 @@ fn overlay_style(
     status: button::Status,
 ) -> button::Style {
     let hovered = matches!(status, button::Status::Hovered);
+    let disabled = matches!(status, button::Status::Disabled);
     button::Style {
         background: Some(Color::TRANSPARENT.into()),
-        text_color: if active {
+        text_color: if disabled {
+            with_alpha(palette.surface_text, 0.34 * fade)
+        } else if active {
             if destructive {
                 with_alpha(palette.background, fade)
             } else {
@@ -148,7 +158,9 @@ fn overlay_style(
             with_alpha(palette.surface_text, 0.9 * fade)
         },
         border: Border {
-            color: if destructive {
+            color: if disabled {
+                with_alpha(palette.outline, 0.18 * fade)
+            } else if destructive {
                 with_alpha(palette.tertiary, if hovered || focused { fade } else { 0.62 * fade })
             } else {
                 with_alpha(
@@ -162,7 +174,7 @@ fn overlay_style(
                     },
                 )
             },
-            width: if focused { 2.0 } else { 1.0 },
+            width: if focused && !disabled { 2.0 } else { 1.0 },
             radius: 0.0.into(),
         },
         ..Default::default()
@@ -173,7 +185,7 @@ fn fixed_button<'a>(
     label: String,
     active: bool,
     destructive: bool,
-    message: Message,
+    message: Option<Message>,
     focused: bool,
     scale: f32,
     palette: &'a Palette,
@@ -181,11 +193,18 @@ fn fixed_button<'a>(
     width: f32,
     motion: MotionProfile,
 ) -> Element<'a, Message> {
-    let backdrop: Element<'a, Message> =
-        iced::widget::canvas(ButtonFill { active, destructive, palette: *palette, fade, motion })
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .into();
+    let enabled = message.is_some();
+    let backdrop: Element<'a, Message> = iced::widget::canvas(ButtonFill {
+        active,
+        destructive,
+        enabled,
+        palette: *palette,
+        fade,
+        motion,
+    })
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .into();
     let label = container(
         text(label).font(crate::frontend::ui::UI_FONT).size(11.0 * legible_type_scale(scale)),
     )
@@ -193,14 +212,11 @@ fn fixed_button<'a>(
     .height(Length::Fill)
     .align_x(iced::alignment::Horizontal::Center)
     .align_y(iced::alignment::Vertical::Center);
-    let hit_target = button(label)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(0.0)
-        .on_press(message)
-        .style(move |_theme, status| {
-            overlay_style(active, destructive, focused, fade, palette, status)
-        });
+    let hit_target = button(label).width(Length::Fill).height(Length::Fill).padding(0.0).style(
+        move |_theme, status| overlay_style(active, destructive, focused, fade, palette, status),
+    );
+    let hit_target =
+        if let Some(message) = message { hit_target.on_press(message) } else { hit_target };
     container(stack![backdrop, hit_target])
         .width(Length::Fixed(width))
         .height(Length::Fixed(BUTTON_HEIGHT * scale.max(1.0)))
@@ -220,7 +236,59 @@ fn option_button(
     motion: MotionProfile,
 ) -> Element<'_, Message> {
     let width = button_width(&label, scale);
-    fixed_button(label, active, destructive, message, focused, scale, palette, fade, width, motion)
+    fixed_button(
+        label,
+        active,
+        destructive,
+        Some(message),
+        focused,
+        scale,
+        palette,
+        fade,
+        width,
+        motion,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn choice_buttons<'a>(
+    path: &str,
+    options: Vec<(String, String)>,
+    current: &str,
+    disabled: &[String],
+    keyboard_focused: bool,
+    focused_choice: Option<usize>,
+    available_width: f32,
+    scale: f32,
+    palette: &'a Palette,
+    fade: f32,
+    motion: MotionProfile,
+) -> Element<'a, Message> {
+    let items = options
+        .into_iter()
+        .enumerate()
+        .map(|(index, (key, label))| {
+            let width = button_width(&label, scale);
+            let enabled = !disabled.contains(&key);
+            let active = key == current;
+            let message =
+                enabled.then(|| Message::Settings(SettingsMsg::Pick(path.to_owned(), key)));
+            let item = fixed_button(
+                label,
+                active,
+                false,
+                message,
+                enabled && keyboard_focused && focused_choice == Some(index),
+                scale,
+                palette,
+                fade,
+                width,
+                motion,
+            );
+            (width, item)
+        })
+        .collect();
+    wrapped_options(items, available_width, scale)
 }
 
 fn wrapped_options(
@@ -262,7 +330,7 @@ pub(super) fn widget<'a>(
             },
             value,
             false,
-            Message::Settings(SettingsMsg::Toggle(path, !value)),
+            Some(Message::Settings(SettingsMsg::Toggle(path, !value))),
             keyboard_focused,
             scale,
             palette,
@@ -359,30 +427,32 @@ pub(super) fn widget<'a>(
             }
             input.into()
         }
-        Control::Dropdown { path, options, current }
-        | Control::Chips { path, options, current } => {
-            let items = options
-                .into_iter()
-                .enumerate()
-                .map(|(index, (key, label))| {
-                    let width = button_width(&label, scale);
-                    let item = fixed_button(
-                        label,
-                        key == current,
-                        false,
-                        Message::Settings(SettingsMsg::Pick(path.clone(), key)),
-                        keyboard_focused && focused_choice == Some(index),
-                        scale,
-                        palette,
-                        fade,
-                        width,
-                        motion,
-                    );
-                    (width, item)
-                })
-                .collect();
-            wrapped_options(items, available_width, scale)
-        }
+        Control::Dropdown { path, options, current } => choice_buttons(
+            &path,
+            options,
+            &current,
+            &[],
+            keyboard_focused,
+            focused_choice,
+            available_width,
+            scale,
+            palette,
+            fade,
+            motion,
+        ),
+        Control::Chips { path, options, current, disabled } => choice_buttons(
+            &path,
+            options,
+            &current,
+            &disabled,
+            keyboard_focused,
+            focused_choice,
+            available_width,
+            scale,
+            palette,
+            fade,
+            motion,
+        ),
         Control::MotionWeights { weights } => {
             let mut group = row![].spacing(8.0 * scale);
             for (label, key, reset) in weights {
@@ -417,7 +487,7 @@ pub(super) fn widget<'a>(
                                 "↺".into(),
                                 false,
                                 false,
-                                Message::Settings(SettingsMsg::Run(reset)),
+                                Some(Message::Settings(SettingsMsg::Run(reset))),
                                 false,
                                 scale * 0.85,
                                 palette,
@@ -442,7 +512,7 @@ pub(super) fn widget<'a>(
                 if confirming { confirmation } else { label },
                 confirming,
                 confirming,
-                Message::Settings(SettingsMsg::Run(id)),
+                Some(Message::Settings(SettingsMsg::Run(id))),
                 keyboard_focused,
                 scale,
                 palette,
@@ -476,7 +546,7 @@ pub(super) fn widget<'a>(
                         name.clone(),
                         active,
                         false,
-                        Message::ApplyPreset(mode.clone(), name.clone()),
+                        Some(Message::ApplyPreset(mode.clone(), name.clone())),
                         keyboard_focused && focused_choice == Some(apply_index),
                         scale,
                         palette,
@@ -491,7 +561,7 @@ pub(super) fn widget<'a>(
                         "×".into(),
                         false,
                         true,
-                        Message::DeletePreset(mode.clone(), name),
+                        Some(Message::DeletePreset(mode.clone(), name)),
                         keyboard_focused && focused_choice == Some(delete_index),
                         scale,
                         palette,

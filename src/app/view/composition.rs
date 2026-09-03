@@ -101,6 +101,11 @@ fn overlay_view(app: &App) -> Element<'_, Message> {
                         .demo
                         .as_ref()
                         .is_some_and(|session| session.type_badges_suppressed),
+                show_video_indicators: !app
+                    .runtime_state
+                    .demo
+                    .as_ref()
+                    .is_some_and(|session| session.type_badges_suppressed),
                 fade,
             })
             .width(Length::Fill)

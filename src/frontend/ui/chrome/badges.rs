@@ -97,22 +97,37 @@ pub(super) fn draw_chrome_item(
     palette: &Palette,
     chrome: &Chrome,
     show_type_badge: bool,
+    show_video_indicator: bool,
 ) {
     match chrome.view {
-        0 => draw_slice(frame, palette, chrome, show_type_badge),
-        1 => draw_grid(frame, palette, chrome, show_type_badge),
-        _ => draw_hex(frame, palette, chrome, show_type_badge),
+        0 => draw_slice(frame, palette, chrome, show_type_badge, show_video_indicator),
+        1 => draw_grid(frame, palette, chrome, show_type_badge, show_video_indicator),
+        _ => draw_hex(frame, palette, chrome, show_type_badge, show_video_indicator),
     }
 }
 
-fn draw_slice(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_badge: bool) {
-    if chrome.has_video {
+fn draw_slice(
+    frame: &mut Frame,
+    palette: &Palette,
+    chrome: &Chrome,
+    show_type_badge: bool,
+    show_video_indicator: bool,
+) {
+    if show_video_indicator && chrome.has_video {
         let x = if chrome.skew >= 0.0 {
             chrome.cx + chrome.hw - 21.0
         } else {
             chrome.cx - chrome.hw + 21.0
         };
-        video_indicator(frame, palette, x, chrome.cy - chrome.hh + 21.0, 22.0, chrome.opacity);
+        let edge_y = -chrome.edge_tilt * 0.5 * ((x - chrome.cx) / chrome.hw.max(1.0));
+        video_indicator(
+            frame,
+            palette,
+            x,
+            chrome.cy - chrome.hh + 21.0 + edge_y,
+            22.0,
+            chrome.opacity,
+        );
     }
     if show_type_badge {
         let skew = chrome.skew.abs();
@@ -124,12 +139,13 @@ fn draw_slice(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_b
         } else {
             chrome.cx - chrome.hw + skew + 8.0
         };
+        let edge_y = -chrome.edge_tilt * 0.5 * ((x + width * 0.5 - chrome.cx) / chrome.hw.max(1.0));
         type_badge(
             frame,
             palette,
             chrome.kind,
             x,
-            chrome.cy + chrome.hh - height - 8.0,
+            chrome.cy + chrome.hh - height - 8.0 + edge_y,
             height,
             (height / 2.0).min(chrome.radius * 0.5).max(2.0),
             9.0,
@@ -139,7 +155,13 @@ fn draw_slice(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_b
     }
 }
 
-fn draw_grid(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_badge: bool) {
+fn draw_grid(
+    frame: &mut Frame,
+    palette: &Palette,
+    chrome: &Chrome,
+    show_type_badge: bool,
+    show_video_indicator: bool,
+) {
     if show_type_badge {
         type_badge(
             frame,
@@ -154,7 +176,7 @@ fn draw_grid(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_ba
             chrome.opacity,
         );
     }
-    if chrome.has_video {
+    if show_video_indicator && chrome.has_video {
         video_indicator(
             frame,
             palette,
@@ -176,7 +198,13 @@ fn draw_grid(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_ba
     }
 }
 
-fn draw_hex(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_badge: bool) {
+fn draw_hex(
+    frame: &mut Frame,
+    palette: &Palette,
+    chrome: &Chrome,
+    show_type_badge: bool,
+    show_video_indicator: bool,
+) {
     if show_type_badge {
         let height = 18.0;
         let label = badge_label(chrome.kind);
@@ -194,7 +222,7 @@ fn draw_hex(frame: &mut Frame, palette: &Palette, chrome: &Chrome, show_type_bad
             chrome.opacity,
         );
     }
-    if chrome.has_video {
+    if show_video_indicator && chrome.has_video {
         video_indicator(
             frame,
             palette,

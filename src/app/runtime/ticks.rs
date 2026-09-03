@@ -107,6 +107,14 @@ impl App {
 
     fn frame_demand(&self) -> FrameDemand {
         let mut demand = self.scene.frame_demand();
+        if self
+            .runtime_state
+            .demo
+            .as_ref()
+            .is_some_and(|session| session.scroll_rate.abs() > f32::EPSILON)
+        {
+            demand = demand.max(FrameDemand::Direct);
+        }
         if self.theme.hover_since.is_some()
             || self.theme.job_pending.is_some()
             || self
@@ -291,6 +299,7 @@ impl App {
             .last_tick
             .map_or(1.0 / 60.0, |prev| now.duration_since(prev).as_secs_f32().min(0.05));
         self.runtime_state.last_tick = Some(now);
+        self.tick_demo_scroll(dt);
         let apply_done = if let Some(eff) = self.panels.effects.as_mut() {
             eff.tick(dt);
             eff.apply_finished()
@@ -299,7 +308,7 @@ impl App {
         };
         if apply_done && let Some(eff) = self.panels.effects.take() {
             for path in eff.discardable_previews() {
-                self.daemon.client.call("effects.discard", serde_json::json!({ "preview": path }));
+                self.discard_effect_preview(&path);
             }
             crate::app::warm::exit_picker(self);
         }
@@ -409,6 +418,14 @@ impl App {
         );
         self.preview_resources.render_loop_active = animating;
         crate::frame_mark!();
+    }
+
+    pub(in crate::app) fn tick_demo_scroll(&mut self, dt: f32) {
+        let rate = self.runtime_state.demo.as_ref().map_or(0.0, |session| session.scroll_rate);
+        if rate.abs() <= f32::EPSILON || !matches!(self.scene.mode, Mode::Slices | Mode::Sandy) {
+            return;
+        }
+        self.scene.slice_scroll(rate * dt, self.library_session.filtered.len());
     }
 
     fn tick_overlays(&mut self, dt: f32) {

@@ -37,6 +37,7 @@ impl Config {
         slice_width: sel_num(skwd_config::keys::selector::SLICE_WIDTH, 135.0, 90.0) as f32;
         slice_spacing: sel_num(skwd_config::keys::selector::SLICE_SPACING, -30.0, -30.0) as f32;
         skew_offset: sel_num(skwd_config::keys::selector::SKEW_OFFSET, 35.0, 25.0) as f32;
+        slice_edge_tilt: sel_num(skwd_config::keys::selector::SLICE_EDGE_TILT, 0.0, 0.0) as f32;
         grid_thumb_width: sel_num(skwd_config::keys::selector::GRID_THUMB_WIDTH, 300.0, 220.0) as f32;
         grid_thumb_height: sel_num(skwd_config::keys::selector::GRID_THUMB_HEIGHT, 169.0, 124.0) as f32;
         grid_round_corners: bool_setting(skwd_config::schema::setting::selector::GRID_ROUND_CORNERS);

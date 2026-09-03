@@ -522,7 +522,10 @@ fn rpc_error_effects() {
     effects.begin_request();
     effects.mark_preview_queued();
     app.panels.effects = Some(effects);
-    app.daemon.pending.insert(5, Pending::EffectsPreview { source: String::from("/src.png") });
+    app.daemon.pending.insert(
+        5,
+        Pending::EffectsPreview { source: String::from("/src.png"), cache_key: String::new() },
+    );
     reject(&mut app, 5, "bad");
     let effects = app.panels.effects.as_ref().unwrap();
     assert!(!effects.is_busy());
@@ -546,7 +549,7 @@ fn stale_effect_preview_discarded() {
     let _ = drain_calls(&app);
 
     app.on_result(
-        Pending::EffectsPreview { source: String::from("/first.png") },
+        Pending::EffectsPreview { source: String::from("/first.png"), cache_key: String::new() },
         &json!({"output": "/cache/first-effect.png"}),
     );
 
@@ -573,7 +576,9 @@ fn disconnect_drops_pending() {
     );
     effects.begin_request();
     app.panels.effects = Some(effects);
-    app.daemon.pending.insert(5, Pending::EffectsPreview { source: String::new() });
+    app.daemon
+        .pending
+        .insert(5, Pending::EffectsPreview { source: String::new(), cache_key: String::new() });
     app.handle_ipc(IpcMsg::Disconnected);
     assert!(app.daemon.pending.is_empty());
     assert!(app.library_session.list_dirty);

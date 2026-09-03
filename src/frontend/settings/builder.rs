@@ -156,6 +156,17 @@ impl Builder<'_> {
     }
 
     pub(super) fn chips(&mut self, title: &str, desc: &str, path: &str, options: &[(&str, &str)]) {
+        self.chips_with_disabled(title, desc, path, options, &[]);
+    }
+
+    pub(super) fn chips_with_disabled(
+        &mut self,
+        title: &str,
+        desc: &str,
+        path: &str,
+        options: &[(&str, &str)],
+        disabled: &[&str],
+    ) {
         let current = self.cfg.text(path);
         self.row(
             title,
@@ -167,6 +178,7 @@ impl Builder<'_> {
                     .map(|(key, label)| ((*key).to_string(), (*label).to_string()))
                     .collect(),
                 current,
+                disabled: disabled.iter().map(|key| (*key).to_string()).collect(),
             },
         );
     }
@@ -179,7 +191,11 @@ impl Builder<'_> {
         options: Vec<(String, String)>,
     ) {
         let current = self.cfg.text(path);
-        self.row(title, desc, Control::Chips { path: path.to_string(), options, current });
+        self.row(
+            title,
+            desc,
+            Control::Chips { path: path.to_string(), options, current, disabled: Vec::new() },
+        );
     }
 
     pub(super) fn action(&mut self, title: &str, desc: &str, id: ActionId, label: &str) {

@@ -120,7 +120,8 @@ fn card_flip_defaults() {
 fn slice_getters() {
     let conf = sel(json!({
         "sliceHeight": 400.0, "visibleCount": 9, "expandedWidth": 800.0,
-        "sliceWidth": 150.0, "sliceSpacing": -10.0, "skewOffset": 20.0
+        "sliceWidth": 150.0, "sliceSpacing": -10.0, "skewOffset": 20.0,
+        "sliceEdgeTilt": 42.0
     }));
     assert_eq!(conf.slice_height(), 400.0);
     assert_eq!(conf.visible_count(), 9);
@@ -128,6 +129,7 @@ fn slice_getters() {
     assert_eq!(conf.slice_width(), 150.0);
     assert_eq!(conf.slice_spacing(), -10.0);
     assert_eq!(conf.skew_offset(), 20.0);
+    assert_eq!(conf.slice_edge_tilt(), 42.0);
 }
 
 #[test]

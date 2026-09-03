@@ -7,7 +7,7 @@ use crate::app::*;
 impl App {
     pub(in crate::app) fn rpc_error(&mut self, kind: Pending, err: String) {
         match kind {
-            Pending::EffectsPreview { source } => {
+            Pending::EffectsPreview { source, .. } => {
                 if let Some(eff) =
                     self.panels.effects.as_mut().filter(|effects| effects.source_path() == source)
                 {
@@ -101,13 +101,14 @@ impl App {
                 );
                 self.on_list(catalog);
             }
-            Pending::EffectsPreview { source } => self.on_effects_preview(
+            Pending::EffectsPreview { source, cache_key } => self.on_effects_preview(
                 decoded!(
                     "effects.preview",
                     result,
                     crate::infrastructure::rpc_results::decode_effect_operation,
                 ),
                 &source,
+                &cache_key,
             ),
             Pending::ThemePreview { card, backend } => {
                 self.on_theme_preview(
@@ -129,6 +130,11 @@ impl App {
                 &backend,
             ),
             Pending::Outputs => self.on_outputs(decoded!(
+                "wall.outputs",
+                result,
+                crate::infrastructure::rpc_results::decode_outputs,
+            )),
+            Pending::DemoOutputs => self.on_demo_outputs(decoded!(
                 "wall.outputs",
                 result,
                 crate::infrastructure::rpc_results::decode_outputs,

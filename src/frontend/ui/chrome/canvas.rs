@@ -15,6 +15,7 @@ pub struct ChromeCanvas<'a> {
     pub cache: &'a canvas::Cache,
     pub overview_set: bool,
     pub show_type_badges: bool,
+    pub show_video_indicators: bool,
     pub fade: f32,
 }
 
@@ -37,7 +38,13 @@ impl<Message> canvas::Program<Message> for ChromeCanvas<'_> {
                     continue;
                 }
                 let faded = &Chrome { opacity: chrome.opacity * fade, ..*chrome };
-                draw_chrome_item(frame, palette, faded, self.show_type_badges);
+                draw_chrome_item(
+                    frame,
+                    palette,
+                    faded,
+                    self.show_type_badges,
+                    self.show_video_indicators,
+                );
             }
             if let Some(panel) = &self.render.back {
                 draw_back(frame, panel, palette, self.overview_set, fade);

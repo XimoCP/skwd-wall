@@ -75,8 +75,11 @@ pub(super) fn tag_add_overlay(app: &App) -> Option<Element<'_, Message>> {
     }
     let bp = app.scene.render.back.as_ref().filter(|bp| bp.add_open > 0.85)?;
     let lay = crate::frontend::ui::back_layout(bp);
-    let left = (lay.add.0 + 8.0).max(0.0);
-    let top = (lay.add.1 - 2.0).max(0.0);
+    let (left, top, width, _) = crate::frontend::ui::back_bounds(
+        bp,
+        &lay,
+        (lay.add.0 + 8.0, lay.add.1 - 2.0, (lay.add.2 - 16.0).max(80.0), lay.add.3 + 4.0),
+    );
     let ip = app.theme.palette;
     let input = text_input(crate::i18n::tr("tags-input-placeholder"), &app.tags.input)
         .id(tag_input_id())
@@ -84,7 +87,7 @@ pub(super) fn tag_add_overlay(app: &App) -> Option<Element<'_, Message>> {
         .on_submit(Message::Tag(crate::frontend::tagcloud::TagMsg::Submit))
         .padding(Padding { top: 7.0, bottom: 7.0, left: 6.0, right: 6.0 })
         .size(13)
-        .width(Length::Fixed((lay.add.2 - 16.0).max(80.0)))
+        .width(Length::Fixed(width.max(80.0)))
         .style(move |_theme, _status| crate::frontend::ui::ghost_input_style(&ip));
     Some(container(input).padding(Padding { top, left, ..Padding::ZERO }).into())
 }
@@ -102,23 +105,25 @@ pub(super) fn card_tag_remove_overlay(app: &App) -> Option<Element<'_, Message>>
         .enumerate()
         .map(|(index, &(x, y, width, height))| {
             let target_w = 30.0_f32.min(width);
+            let (left, top, target_w, target_h) = crate::frontend::ui::back_bounds(
+                panel,
+                &layout,
+                (x + width - target_w, y, target_w, height),
+            );
             container(
                 mouse_area(
-                    Space::new().width(Length::Fixed(target_w)).height(Length::Fixed(height)),
+                    Space::new().width(Length::Fixed(target_w)).height(Length::Fixed(target_h)),
                 )
                 .on_press(Message::Tag(crate::frontend::tagcloud::TagMsg::Remove(index)))
                 .interaction(iced::mouse::Interaction::Pointer),
             )
-            .padding(Padding {
-                top: y.max(0.0),
-                right: 0.0,
-                bottom: 0.0,
-                left: (x + width - target_w).max(0.0),
-            })
+            .padding(Padding { top: top.max(0.0), right: 0.0, bottom: 0.0, left: left.max(0.0) })
             .into()
         })
         .collect();
     if let Some((x, y, width, height, _)) = layout.tag_overflow {
+        let (x, y, width, height) =
+            crate::frontend::ui::back_bounds(panel, &layout, (x, y, width, height));
         targets.push(
             container(
                 mouse_area(Space::new().width(Length::Fixed(width)).height(Length::Fixed(height)))
@@ -138,7 +143,8 @@ pub(super) fn card_tag_drawer(app: &App) -> Option<Element<'_, Message>> {
     }
     let panel = app.scene.render.back.as_ref()?;
     let layout = crate::frontend::ui::back_layout(panel);
-    let (left, top, width, height) = card_tag_drawer_bounds(panel, &layout);
+    let drawer = card_tag_drawer_bounds(panel, &layout);
+    let (left, top, width, height) = crate::frontend::ui::back_bounds(panel, &layout, drawer);
     let scale = app.config.ui_scale();
     let pal = app.theme.palette;
 

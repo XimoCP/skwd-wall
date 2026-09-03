@@ -146,6 +146,7 @@ impl SceneCore {
         hw: f32,
         hh: f32,
         skew: f32,
+        edge_tilt: f32,
         radii: [f32; 4],
         progress: f32,
     ) -> BackPanel {
@@ -159,6 +160,7 @@ impl SceneCore {
             hw,
             hh,
             skew,
+            edge_tilt,
             radii,
             progress,
             coordinated_flip: matches!(self.mode, Mode::Slices | Mode::Sandy),
@@ -246,7 +248,7 @@ impl SceneCore {
             ..Default::default()
         });
         let mut body =
-            self.body_instance(ctx, wanted, store_idx, [cx, cy, hw, hh], radii, 0.0, true);
+            self.body_instance(ctx, wanted, store_idx, [cx, cy, hw, hh], radii, 0.0, 0.0, true);
         body.params[2] = (prog * 8.0).min(1.0);
         let phases =
             card_flip_phases(prog, self.card.flip_shader_enabled, self.card.flip_back_enabled);
@@ -261,6 +263,7 @@ impl SceneCore {
             vh * 0.5,
             thw,
             thh,
+            0.0,
             0.0,
             radii,
             progress,

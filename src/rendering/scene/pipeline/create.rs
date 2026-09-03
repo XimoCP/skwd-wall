@@ -162,6 +162,7 @@ impl ScenePipeline {
                 7 => Float32x4,
                 8 => Uint32x4,
                 9 => Float32x4,
+                10 => Float32x4,
             ],
         };
 

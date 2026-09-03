@@ -39,11 +39,12 @@ pub(super) fn tab_paper(builder: &mut Builder<'_>) {
         };
         (key, tr(label))
     });
-    builder.chips(
+    builder.chips_with_disabled(
         tr("settings-paper-video-engine-label"),
         tr("settings-paper-video-engine-desc"),
         keys::paper::VIDEO_ENGINE,
         &video_engines,
+        &["tinier"],
     );
     builder.card(tr("settings-paper-performance-card"), tr("settings-paper-performance-card-desc"));
     builder.toggle(

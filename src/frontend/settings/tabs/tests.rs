@@ -154,7 +154,7 @@ fn monitor_choices_detected() {
         .iter()
         .flat_map(|(_, rows)| rows)
         .find_map(|row| match &row.control {
-            Control::Chips { path, options, current } if path == "monitor" => {
+            Control::Chips { path, options, current, .. } if path == "monitor" => {
                 assert_eq!(current, "DP-9");
                 Some(options.clone())
             }
@@ -549,6 +549,23 @@ fn picker_type_badges() {
 }
 
 #[test]
+fn slices_expose_live_edge_tilt() {
+    let config = FakeSettingsSource::default().with_text(keys::selector::DISPLAY_MODE, "slices");
+    let cards = build_tab("picker", &config, &[], &[], "", &[]);
+    let (_, rows) = cards
+        .iter()
+        .find(|(card, _)| card.title == "Layout & presets")
+        .expect("picker exposes its layout settings");
+    assert!(rows.iter().any(|row| {
+        matches!(
+            &row.control,
+            Control::Number { path, unit, .. }
+                if path == keys::selector::SLICE_EDGE_TILT && *unit == "px"
+        ) && row.title == "Slice size · Edge tilt"
+    }));
+}
+
+#[test]
 fn filter_bar_top_level() {
     let picker = build_tab("picker", &cfg(), &[], &[], "", &[]);
     assert!(picker.iter().all(|(card, _)| card.title != "Filter bar"));
@@ -838,6 +855,34 @@ fn folder_sentinel_labels() {
 #[test]
 fn static_renderer_choices() {
     assert_eq!(super::super::tables::ENGINES, [("skwd-paper", "Skwd-paper"), ("awww", "awww")]);
+}
+
+#[test]
+fn tinier_video_engine_is_visible_but_disabled() {
+    let cards = build_tab("playback", &cfg(), &[], &[], "", &[]);
+    let row = cards
+        .iter()
+        .flat_map(|(_, rows)| rows)
+        .find(|row| {
+            matches!(
+                &row.control,
+                Control::Chips { path, .. } if path == keys::paper::VIDEO_ENGINE
+            )
+        })
+        .expect("playback exposes the video engine choices");
+    let Control::Chips { options, disabled, .. } = &row.control else {
+        unreachable!();
+    };
+
+    assert_eq!(
+        options,
+        &[
+            (String::from("vulkan"), String::from("Vulkan")),
+            (String::from("tinier"), String::from("Tinier (work in progress)")),
+        ]
+    );
+    assert_eq!(disabled, &[String::from("tinier")]);
+    assert!(row.desc.contains("cannot be selected"));
 }
 
 #[test]

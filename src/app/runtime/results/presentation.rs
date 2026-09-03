@@ -196,6 +196,20 @@ impl App {
         }
     }
 
+    pub(super) fn on_demo_outputs(&mut self, result: crate::contracts::daemon::OutputsResult) {
+        let outputs = result
+            .outputs
+            .into_iter()
+            .filter(crate::contracts::daemon::OutputStatus::is_connected)
+            .collect::<Vec<_>>();
+        self.daemon.output_statuses.clone_from(&outputs);
+        if let Some(session) = self.runtime_state.demo.as_mut()
+            && !session.overrides_active
+        {
+            session.overridden_outputs = outputs;
+        }
+    }
+
     pub(super) fn on_theme_backends(
         &mut self,
         result: crate::contracts::daemon::ThemeBackendsResult,
@@ -230,6 +244,14 @@ impl App {
             })
             .collect();
         crate::frontend::audio_panel::align_shared_audio(&mut mons);
+        if let Some(volume) =
+            self.runtime_state.demo.as_ref().and_then(|session| session.audio_demo_volume)
+        {
+            for monitor in mons.iter_mut().filter(|monitor| monitor.has_audio_controls()) {
+                monitor.volume = volume;
+                monitor.mute = true;
+            }
+        }
         if let Some(panel) = self.panels.audio.as_mut() {
             panel.mons = mons;
         }

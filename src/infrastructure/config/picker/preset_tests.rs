@@ -79,11 +79,12 @@ fn sandy_preset_keeps_ring_size() {
 #[test]
 fn slices_preset_keeps_position() {
     let conf = cfg(json!({"components":{"wallpaperSelector":{
-        "displayMode":"slices","sliceStageX":35.0,"sliceStageY":-20.0
+        "displayMode":"slices","sliceStageX":35.0,"sliceStageY":-20.0,"sliceEdgeTilt":48.0
     }}}));
     let snapshot = conf.selector_preset_snapshot();
     assert_eq!(snapshot["sliceStageX"], json!(35.0));
     assert_eq!(snapshot["sliceStageY"], json!(-20.0));
+    assert_eq!(snapshot["sliceEdgeTilt"], json!(48.0));
 }
 
 #[test]

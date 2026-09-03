@@ -411,6 +411,7 @@ pub struct SliceParams {
     pub slice_h: f32,
     pub spacing: f32,
     pub skew: f32,
+    pub edge_tilt: f32,
     pub visible_count: usize,
     pub corners: [f32; 4],
     pub wobble: bool,
@@ -450,6 +451,7 @@ impl SliceParams {
         self.slice_h = lerp(self.slice_h, target.slice_h, amt);
         self.spacing = lerp(self.spacing, target.spacing, amt);
         self.skew = lerp(self.skew, target.skew, amt);
+        self.edge_tilt = lerp(self.edge_tilt, target.edge_tilt, amt);
         self.visible_count = target.visible_count;
         self.wobble = target.wobble;
         self.wobble_strength = lerp(self.wobble_strength, target.wobble_strength, amt);
@@ -466,6 +468,7 @@ impl SliceParams {
             && feq(self.slice_h, target.slice_h)
             && feq(self.spacing, target.spacing)
             && feq(self.skew, target.skew)
+            && feq(self.edge_tilt, target.edge_tilt)
             && self.visible_count == target.visible_count
             && self.wobble == target.wobble
             && feq(self.wobble_strength, target.wobble_strength)
@@ -618,6 +621,7 @@ pub struct Hit {
     pub hw: f32,
     pub hh: f32,
     pub skew: f32,
+    pub edge_tilt: f32,
     pub hex: bool,
     pub hex_shape: HexShape,
     pub triangle_direction: u8,
@@ -657,27 +661,36 @@ impl Hit {
             }
             return qy <= self.hh && qx / self.hw + 0.5 * qy / self.hh <= 1.0;
         }
-        let h = self.hh * 2.0;
-        let w = self.hw * 2.0;
-        if h <= 0.0 || w <= 0.0 {
-            return false;
-        }
-        let x = px - (self.cx - self.hw);
-        let y = py - (self.cy - self.hh);
-        if y < 0.0 || y > h {
-            return false;
-        }
-        let sk_abs = self.skew.abs();
-        let (top_left, top_right, bot_left, bot_right) = if self.skew >= 0.0 {
-            (sk_abs, w, 0.0, w - sk_abs)
-        } else {
-            (0.0, w - sk_abs, sk_abs, w)
-        };
-        let t = y / h;
-        let left = top_left * (1.0 - t) + bot_left * t;
-        let right = top_right * (1.0 - t) + bot_right * t;
-        x >= left && x <= right
+        sheared_contains(self.cx, self.cy, self.hw, self.hh, self.skew, self.edge_tilt, px, py)
     }
+}
+
+pub fn sheared_contains(
+    cx: f32,
+    cy: f32,
+    hw: f32,
+    hh: f32,
+    skew: f32,
+    edge_tilt: f32,
+    px: f32,
+    py: f32,
+) -> bool {
+    if hw <= 0.0 || hh <= 0.0 {
+        return false;
+    }
+    let sx = skew * 0.5;
+    let ty = edge_tilt * 0.5;
+    let bx = (hw - sx.abs()).max(1.0);
+    let by = (hh - ty.abs()).max(1.0);
+    let det = bx * by - sx * ty;
+    if det.abs() < 1.0 {
+        return false;
+    }
+    let x = px - cx;
+    let y = py - cy;
+    let u = (by * x + sx * y) / det;
+    let v = (ty * x + bx * y) / det;
+    u.abs() <= 1.0 && v.abs() <= 1.0
 }
 
 pub fn corner_clamp(corners: [f32; 4], flat_w: f32, slant_len: f32) -> [f32; 4] {
@@ -685,11 +698,18 @@ pub fn corner_clamp(corners: [f32; 4], flat_w: f32, slant_len: f32) -> [f32; 4] 
     corners.map(|r| r.clamp(0.0, rc_max))
 }
 
-pub fn slice_clamped_corners(corners: [f32; 4], w: f32, h: f32, skew: f32) -> [f32; 4] {
+pub fn slice_clamped_corners(
+    corners: [f32; 4],
+    w: f32,
+    h: f32,
+    skew: f32,
+    edge_tilt: f32,
+) -> [f32; 4] {
     let sk_abs = skew.abs();
-    let flat_w = (w - sk_abs).max(0.001);
-    let slant_len = (sk_abs * sk_abs + h * h).sqrt().max(0.001);
-    corner_clamp(corners, flat_w, slant_len)
+    let tilt_abs = edge_tilt.abs();
+    let horizontal_edge = ((w - sk_abs).max(0.001).powi(2) + edge_tilt.powi(2)).sqrt();
+    let vertical_edge = (skew.powi(2) + (h - tilt_abs).max(0.001).powi(2)).sqrt();
+    corner_clamp(corners, horizontal_edge, vertical_edge)
 }
 
 pub fn cover_crop(rect_w: f32, rect_h: f32, tex_w: f32, tex_h: f32) -> ([f32; 2], [f32; 2]) {

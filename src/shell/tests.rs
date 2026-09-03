@@ -35,10 +35,10 @@ fn theme_audition_startup() {
 #[test]
 fn socket_name_namespaced() {
     let base = super::shell::control_socket_name();
-    assert!(base.starts_with("skwd-wall."));
-    unsafe { std::env::set_var("SKWD_WALL_INSTANCE", "e2e") };
+    assert!(base.starts_with("skwd-wall-v2."));
+    unsafe { std::env::set_var("SKWD_WALL_V2_INSTANCE", "e2e") };
     let tagged = super::shell::control_socket_name();
-    unsafe { std::env::remove_var("SKWD_WALL_INSTANCE") };
+    unsafe { std::env::remove_var("SKWD_WALL_V2_INSTANCE") };
     assert_eq!(tagged, format!("{base}.e2e"));
     assert_eq!(super::shell::control_socket_name(), base);
 }

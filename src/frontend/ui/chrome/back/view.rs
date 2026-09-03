@@ -40,7 +40,7 @@ pub(crate) fn draw_back(
     draw_fields(frame, palette, panel, &layout, progress, fade);
     draw_tags(frame, palette, panel, &layout, progress, fade);
     draw_add(frame, palette, panel, &layout, progress, fade);
-    draw_actions(frame, palette, &layout, progress, fade, overview_set);
+    draw_actions(frame, palette, panel, &layout, progress, fade, overview_set);
 }
 
 #[cfg(test)]

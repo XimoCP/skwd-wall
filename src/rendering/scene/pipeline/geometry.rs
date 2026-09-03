@@ -67,6 +67,7 @@ pub(super) fn scale_instances(
         }
         instance.params[0] *= surface_scale;
         instance.params[1] *= surface_scale;
+        instance.shape[0] *= surface_scale;
     }
     Cow::Owned(scaled)
 }

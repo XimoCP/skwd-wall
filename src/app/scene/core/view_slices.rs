@@ -129,13 +129,14 @@ impl SceneCore {
         let is_current = idx == self.current;
         let is_hover = Some(idx) == self.hover;
         let roll = self.flip_roll_for(store_idx, item_cx, item_cy);
-        let radii = layout::slice_clamped_corners(sp.corners, w, sp.slice_h, sp.skew);
+        let radii = layout::slice_clamped_corners(sp.corners, w, sp.slice_h, sp.skew, sp.edge_tilt);
         let (sh_x, sh_y, sh_a) = if is_current { (4.0, 10.0, 0.5) } else { (2.0, 5.0, 0.3) };
         sinks.instances.push(InstanceRaw {
             rect: [item_cx + sh_x, item_cy + sh_y, w * 0.5, sp.slice_h * 0.5],
             radii,
             fill: [0.0, 0.0, 0.0, sh_a],
             params: [sp.skew, 0.0, opacity * roll, 0.0],
+            shape: [sp.edge_tilt, 0.0, 0.0, 0.0],
             ..Default::default()
         });
         let chrome_op = if self.card.flipped == Some(idx) {
@@ -155,6 +156,7 @@ impl SceneCore {
                 hw: w * 0.5,
                 hh: sp.slice_h * 0.5,
                 skew: sp.skew,
+                edge_tilt: sp.edge_tilt,
                 radii,
                 hex: false,
                 view: 0,
@@ -181,6 +183,7 @@ impl SceneCore {
                 w * 0.5,
                 sp.slice_h * 0.5,
                 sp.skew,
+                sp.edge_tilt,
                 radii,
                 progress,
             ));

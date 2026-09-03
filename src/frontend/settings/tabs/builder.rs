@@ -174,7 +174,12 @@ fn compose_displays(
         let placement = Row {
             title: tr("settings-displays-placement-label").to_string(),
             desc: tr("settings-displays-placement-desc").to_string(),
-            control: Control::Chips { path: fill_path, options: fill_modes.into(), current: fill },
+            control: Control::Chips {
+                path: fill_path,
+                options: fill_modes.into(),
+                current: fill,
+                disabled: Vec::new(),
+            },
         };
         let lock_path = format!("{}.{name}", keys::display::OUTPUT_LOCKS, name = output.name);
         let lock = Row {

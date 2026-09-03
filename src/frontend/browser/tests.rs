@@ -14,6 +14,7 @@ fn card_actions_use_the_card_bottom_edge() {
         hw: 60.0,
         hh: 45.0,
         skew: 0.0,
+        edge_tilt: 0.0,
         hex: false,
         hex_shape: HexShape::Hexagon,
         triangle_direction: 0,

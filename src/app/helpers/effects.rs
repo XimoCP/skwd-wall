@@ -6,6 +6,23 @@ pub(crate) fn open_effects(
     index: usize,
     mode: crate::frontend::effects::EffectsMode,
 ) {
+    open_effects_inner(app, index, mode, true);
+}
+
+pub(crate) fn open_effects_without_preview(
+    app: &mut App,
+    index: usize,
+    mode: crate::frontend::effects::EffectsMode,
+) {
+    open_effects_inner(app, index, mode, false);
+}
+
+fn open_effects_inner(
+    app: &mut App,
+    index: usize,
+    mode: crate::frontend::effects::EffectsMode,
+    request_preview: bool,
+) {
     let item = app.library_session.filtered.get(index).and_then(|&source_index| {
         app.library_session.library.catalog().items.get(source_index as usize)
     });
@@ -52,7 +69,8 @@ pub(crate) fn open_effects(
     }
     app.panels.effects = Some(effects);
     app.call_tracked("wall.outputs", serde_json::json!({}), Pending::Outputs);
-    if mode == crate::frontend::effects::EffectsMode::Studio
+    if request_preview
+        && mode == crate::frontend::effects::EffectsMode::Studio
         && app.panels.effects.as_ref().is_some_and(|effects| {
             effects.has_effects_page() && effects.preview_path().is_none() && !effects.shader_live()
         })

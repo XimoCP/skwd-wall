@@ -47,6 +47,7 @@ pub(super) struct CardSpec {
     pub(super) hw: f32,
     pub(super) hh: f32,
     pub(super) skew: f32,
+    pub(super) edge_tilt: f32,
     pub(super) radii: [f32; 4],
     pub(super) hex: bool,
     pub(super) view: u8,

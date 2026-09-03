@@ -117,6 +117,7 @@ impl SceneCore {
         rect: [f32; 4],
         radii: [f32; 4],
         skew: f32,
+        edge_tilt: f32,
         near_ok: bool,
     ) -> InstanceRaw {
         wanted.insert(store_idx);
@@ -136,6 +137,7 @@ impl SceneCore {
             radii,
             fill: [pv.r, pv.g, pv.b, 0.8],
             params: [skew, 0.0, 1.0, 0.0],
+            shape: [edge_tilt, 0.0, 0.0, 0.0],
             ..Default::default()
         };
         let preview_idx = self.preview_slot_idx();
@@ -206,6 +208,7 @@ impl SceneCore {
             body_rect,
             spec.radii,
             spec.skew,
+            spec.edge_tilt,
             spec.near_ok,
         );
         body.params[2] = spec.opacity;
@@ -220,6 +223,7 @@ impl SceneCore {
             hw: spec.hw,
             hh: spec.hh,
             skew: spec.skew,
+            edge_tilt: spec.edge_tilt,
             kind: chrome_kind(item.kind.as_str()),
             has_video: item.effective_kind() == WallpaperKind::Video,
             favourite: ctx.catalog.is_favourite(item),
@@ -233,6 +237,7 @@ impl SceneCore {
             hw: spec.hw,
             hh: spec.hh,
             skew: spec.skew,
+            edge_tilt: spec.edge_tilt,
             hex: spec.hex,
             hex_shape: layout::HexShape::Hexagon,
             triangle_direction: 0,

@@ -35,6 +35,11 @@ fn ui_commands() {
     assert_eq!(app.scene.card_flip_options(), (720.0, false, false));
     cmd(&mut app, "set motion.slowMs 900");
     assert!((app.scene.filter_swap_ms() - 900.0).abs() < 0.01);
+    cmd(&mut app, "mode slices");
+    cmd(&mut app, "set components.wallpaperSelector.sliceEdgeTilt 72");
+    cmd(&mut app, "preset save Slanted cards");
+    assert_eq!(app.config.selected_preset("slices").as_deref(), Some("Slanted cards"));
+    assert_eq!(app.config.selector_presets("slices")[0].1["sliceEdgeTilt"], json!(72.0));
     cmd(&mut app, "mode wall");
     let camera_before = app.scene.camera_target();
     cmd(&mut app, "wheel -2");
@@ -75,6 +80,219 @@ fn ui_commands() {
     );
     cmd(&mut app, "close");
     cmd(&mut app, "totally-bogus");
+}
+
+#[test]
+fn demo_audio_volume_drives_the_open_mixer_without_unmuting() {
+    let mut app = test_app();
+    let before_volume = app.config.wallpaper_volume();
+    let before_mute = app.config.wallpaper_mute();
+    let command = |app: &mut App, value: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(value.to_string())),
+        );
+    };
+    let monitor =
+        |name: &str, kind: &str, mute: bool, volume: u32| crate::frontend::audio_panel::AudioMon {
+            name: name.to_string(),
+            label: name.to_string(),
+            source: format!("/{name}"),
+            wtype: crate::contracts::media::MediaKind::from_key(kind),
+            mute,
+            volume,
+            shared: false,
+        };
+
+    command(&mut app, "demo begin");
+    command(&mut app, "open mixer");
+    app.panels.audio.as_mut().unwrap().mons = vec![
+        monitor("DP-1", "video", true, 0),
+        monitor("DP-2", "we", true, 0),
+        monitor("DP-3", "static", true, 0),
+    ];
+    drain_calls(&app);
+
+    command(&mut app, "audio-demo volume 72");
+    let monitors = &app.panels.audio.as_ref().unwrap().mons;
+    assert_eq!((monitors[0].volume, monitors[0].mute), (72, true));
+    assert_eq!((monitors[1].volume, monitors[1].mute), (72, true));
+    assert_eq!((monitors[2].volume, monitors[2].mute), (0, true));
+    assert_eq!(app.config.wallpaper_volume(), before_volume);
+    assert!(app.config.wallpaper_mute());
+    assert!(drain_calls(&app).iter().any(|(method, params)| {
+        method == "wall.set_audio" && params == &json!({ "volume": 0, "mute": true })
+    }));
+    app.on_result(
+        Pending::AudioOutputs,
+        &json!({"outputs": [{
+            "name": "DP-1", "target": "DP-1", "connected": true,
+            "width": 1920, "height": 1080, "logical_width": 1920, "logical_height": 1080,
+            "current": "/late-video.mp4", "type": "video", "path": "/late-video.mp4",
+            "we_id": "", "mute": false, "volume": 5, "fill": "fill", "audioShared": false
+        }]}),
+    );
+    let late = &app.panels.audio.as_ref().unwrap().mons[0];
+    assert_eq!((late.volume, late.mute), (72, true));
+
+    command(&mut app, "demo end");
+    assert_eq!(app.config.wallpaper_volume(), before_volume);
+    assert_eq!(app.config.wallpaper_mute(), before_mute);
+    assert!(drain_calls(&app).iter().any(|(method, params)| {
+        method == "wall.set_audio"
+            && params == &json!({ "volume": before_volume, "mute": before_mute })
+    }));
+}
+
+#[test]
+fn demo_effect_choice_drives_the_open_effects_dropdown() {
+    let mut app = test_app();
+    seed(&mut app, &[wall("a.png", "static", 1, 0)]);
+    app.daemon.effect_definitions = crate::infrastructure::effects::decode_definitions(&[json!({
+        "id": "theme",
+        "label": "Theme",
+        "category": "Colour",
+        "params": [{
+            "id": "theme",
+            "label": "Palette",
+            "type": "dropdown",
+            "default": "Catppuccin",
+            "options": [
+                { "mode": "Catppuccin", "label": "Catppuccin" },
+                { "mode": "Everforest", "label": "Everforest" },
+                { "mode": "Rose Pine", "label": "Rose Pine" }
+            ]
+        }]
+    })]);
+    let command = |app: &mut App, value: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(value.to_string())),
+        );
+    };
+
+    command(&mut app, "demo begin");
+    command(&mut app, "open effects theme");
+    command(&mut app, "effect-demo choice theme Everforest");
+    let effects = app.panels.effects.as_ref().unwrap();
+    assert_eq!(
+        effects.parameter_values().get("theme"),
+        Some(&crate::domain::effects::EffectValue::Text("Everforest".into()))
+    );
+    assert!(effects.preview_queued());
+
+    command(&mut app, "effect-demo choice theme Missing");
+    assert_eq!(
+        app.panels.effects.as_ref().unwrap().parameter_values().get("theme"),
+        Some(&crate::domain::effects::EffectValue::Text("Everforest".into()))
+    );
+}
+
+#[test]
+fn demo_effect_show_reuses_a_rendered_palette_preview() {
+    let mut app = test_app();
+    seed(&mut app, &[wall("a.png", "static", 1, 0)]);
+    app.daemon.effect_definitions = crate::infrastructure::effects::decode_definitions(&[json!({
+        "id": "theme",
+        "label": "Theme",
+        "category": "Colour",
+        "params": [{
+            "id": "theme",
+            "label": "Palette",
+            "type": "dropdown",
+            "default": "Catppuccin",
+            "options": [
+                { "mode": "Catppuccin", "label": "Catppuccin" },
+                { "mode": "Everforest", "label": "Everforest" }
+            ]
+        }]
+    })]);
+    let command = |app: &mut App, value: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(value.to_string())),
+        );
+    };
+
+    command(&mut app, "demo begin");
+    command(&mut app, "open effects-cached theme");
+    let (source, cache_key) = {
+        let effects = app.panels.effects.as_mut().unwrap();
+        effects.set_str("theme", "Everforest".into());
+        effects.begin_request();
+        (
+            effects.source_path().to_string(),
+            serde_json::to_string(&crate::infrastructure::effects::encode_steps(
+                &effects.preview_effects(),
+            ))
+            .unwrap(),
+        )
+    };
+    app.on_result(
+        Pending::EffectsPreview { source, cache_key: cache_key.clone() },
+        &json!({"output": "/cache/everforest.png"}),
+    );
+    assert_eq!(
+        app.runtime_state.demo.as_ref().unwrap().effect_previews.get(&cache_key),
+        Some(&String::from("/cache/everforest.png"))
+    );
+
+    let _ = drain_calls(&app);
+    command(&mut app, "dismiss");
+    assert!(drain_calls(&app).iter().all(|(method, params)| method != "effects.discard"
+        || params["preview"] != "/cache/everforest.png"));
+    command(&mut app, "open effects-cached theme");
+    let _ = drain_calls(&app);
+    command(&mut app, "effect-demo show theme Everforest");
+    assert_eq!(app.panels.effects.as_ref().unwrap().preview_path(), Some("/cache/everforest.png"));
+    assert!(drain_calls(&app).iter().all(|(method, _)| method != "effects.preview"));
+}
+
+#[test]
+fn demo_apply_override_restores_locked_output_wallpapers() {
+    let mut app = test_app();
+    seed(
+        &mut app,
+        &[json!({
+            "key": "video:forest.mp4",
+            "name": "forest.mp4",
+            "type": "video",
+            "thumb": "/thumbs/forest.webp"
+        })],
+    );
+    let command = |app: &mut App, value: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(value.to_string())),
+        );
+    };
+
+    command(&mut app, "demo begin");
+    app.on_result(
+        Pending::DemoOutputs,
+        &json!({"outputs": [{
+            "name": "DP-2", "target": "DP-2", "connected": true,
+            "width": 3840, "height": 2160, "logical_width": 2160, "logical_height": 3840,
+            "current": "/old.png", "type": "static", "path": "/old.png",
+            "we_id": "", "mute": true, "volume": 0, "fill": "fill", "audioShared": false
+        }]}),
+    );
+    command(&mut app, "apply-source video:forest.mp4");
+    command(&mut app, "override-next");
+    command(&mut app, "apply * crossfade 360");
+    let calls = drain_calls(&app);
+    let (_, apply) = calls.iter().find(|(method, _)| method == "wall.apply").unwrap();
+    assert_eq!(apply["override_locks"], true);
+    assert_eq!(app.runtime_state.demo.as_ref().unwrap().overridden_outputs.len(), 1);
+
+    command(&mut app, "restore-overrides");
+    let calls = drain_calls(&app);
+    let (_, restore) = calls.iter().find(|(method, _)| method == "wall.apply").unwrap();
+    assert_eq!(restore["type"], "static");
+    assert_eq!(restore["path"], "/old.png");
+    assert_eq!(restore["output"], "DP-2");
+    assert_eq!(restore["override_locks"], true);
+    assert!(app.runtime_state.demo.as_ref().unwrap().overridden_outputs.is_empty());
 }
 
 #[test]
@@ -156,7 +374,7 @@ fn ui_state_query() {
     assert_eq!(snap["count"], 2);
     assert_eq!(snap["current"], 0);
     assert_eq!(snap["selection"], "a.png");
-    assert_eq!(snap["demo_protocol"], 14);
+    assert_eq!(snap["demo_protocol"], 15);
     assert_eq!(snap["demo_active"], false);
     assert_eq!(snap["semantic"]["pending"], false);
     assert_eq!(snap["semantic"]["ranked"], 0);
@@ -271,6 +489,90 @@ fn demo_selection_resolves_pending_filters_and_reveals_an_authored_target() {
     );
     assert_eq!(app.library_session.filters.kind, "video");
     assert!(app.library_session.filters.tags.is_empty());
+}
+
+#[test]
+fn demo_selection_keeps_the_authored_wallpaper_away_from_the_list_edges() {
+    let mut app = test_app();
+    let wallpapers = (0..15)
+        .map(|index| wall(&format!("wall-{index}.png"), "static", index, index))
+        .collect::<Vec<_>>();
+    seed(&mut app, &wallpapers);
+    let cmd = |app: &mut App, command: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(command.to_string())),
+        );
+    };
+
+    cmd(&mut app, "demo begin");
+    assert_eq!(app.scene.current, 6);
+    cmd(&mut app, "select wall-0.png");
+
+    assert_eq!(app.scene.current, 6);
+    assert_eq!(
+        crate::app::update::ui_state_json(&app).parse::<serde_json::Value>().unwrap()["selection"],
+        "wall-0.png"
+    );
+    assert!(app.scene.current > 0);
+    assert!(app.scene.current + 1 < app.library_session.filtered.len());
+}
+
+#[test]
+fn demo_geometric_selection_uses_the_middle_grid_column() {
+    let mut app = test_app();
+    let wallpapers = (0..80)
+        .map(|index| wall(&format!("wall-{index}.png"), "static", index, index))
+        .collect::<Vec<_>>();
+    seed(&mut app, &wallpapers);
+    let cmd = |app: &mut App, command: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(command.to_string())),
+        );
+    };
+
+    cmd(&mut app, "demo begin");
+    cmd(&mut app, "mode hex");
+    cmd(&mut app, "tune components.wallpaperSelector.hexRows 5");
+    cmd(&mut app, "tune components.wallpaperSelector.hexCols 12");
+    cmd(&mut app, "select wall-0.png");
+
+    assert_eq!(app.scene.current, 32);
+    assert_eq!(
+        crate::app::update::ui_state_json(&app).parse::<serde_json::Value>().unwrap()["selection"],
+        "wall-0.png"
+    );
+}
+
+#[test]
+fn demo_scroll_advances_one_wall_at_a_time() {
+    let mut app = test_app();
+    let walls = (0..24)
+        .map(|index| wall(&format!("wall-{index}.png"), "static", index, 0))
+        .collect::<Vec<_>>();
+    seed(&mut app, &walls);
+    let command = |app: &mut App, value: &str| {
+        let _ = update(
+            app,
+            Message::Daemon(crate::infrastructure::runtime::Wake::Command(value.to_string())),
+        );
+    };
+
+    command(&mut app, "demo begin");
+    command(&mut app, "mode slices");
+    let start = app.scene.current;
+    command(&mut app, "scroll-demo -2.5");
+    assert!(app.animating());
+
+    app.tick_demo_scroll(0.2);
+    assert_eq!(app.scene.current, start);
+    app.tick_demo_scroll(0.2);
+    assert_eq!(app.scene.current, start + 1);
+
+    command(&mut app, "scroll-demo stop");
+    app.tick_demo_scroll(1.0);
+    assert_eq!(app.scene.current, start + 1);
 }
 
 #[test]
@@ -526,6 +828,7 @@ fn demo_blur_geometry_and_cleanup() {
     let calls = drain_calls(&app);
     let (_, apply) = calls.iter().find(|(method, _)| method == "wall.apply").expect("blur apply");
     let blurred = std::path::PathBuf::from(apply["path"].as_str().unwrap());
+    assert!(blurred.starts_with(std::path::Path::new(&app.config.cache_dir()).join("demo")));
     assert!(blurred.is_file());
     assert_eq!(image::image_dimensions(&blurred).unwrap(), (32, 18));
     assert_eq!(apply["no_transition"], true);
@@ -578,6 +881,7 @@ fn schedule_demo_in_memory_nested() {
     assert!(app.panels.schedule.is_none());
 
     command(&mut app, "demo begin");
+    let _ = drain_calls(&app);
     command(&mut app, "schedule-demo open");
     let editor = app.panels.schedule.as_ref().expect("demo schedule opens");
     assert_eq!(editor.rows.len(), 3);

@@ -15,6 +15,7 @@ fn chrome_signature_buckets() {
         hw: 5.0,
         hh: 6.0,
         skew: 0.0,
+        edge_tilt: 0.0,
         kind: 1,
         has_video: true,
         favourite: false,
