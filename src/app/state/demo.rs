@@ -25,6 +25,7 @@ pub(crate) struct DemoSession {
     pub(crate) override_next_apply: bool,
     pub(crate) audio_demo_volume: Option<u32>,
     pub(crate) scroll_rate: f32,
+    pub(crate) picker_suppressed: bool,
     pub(crate) batch_id: Option<String>,
     pub(crate) batch_commands: Vec<String>,
 }

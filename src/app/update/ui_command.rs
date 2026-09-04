@@ -210,6 +210,7 @@ pub(super) fn run_ui_command(app: &mut App, cmd: &str) -> Task<Message> {
         "batch-commit" if app.runtime_state.demo.is_some() => ui_demo_batch_commit(app, &arg),
         "audio-demo" if app.runtime_state.demo.is_some() => ui_demo_audio(app, &arg),
         "effect-demo" if app.runtime_state.demo.is_some() => ui_demo_effect(app, &arg),
+        "picker-demo" if app.runtime_state.demo.is_some() => ui_demo_picker(app, &arg),
         "tune" => {
             let mut it = arg.splitn(2, char::is_whitespace);
             let path = it.next().unwrap_or("");
@@ -1208,6 +1209,25 @@ fn ui_recolour(app: &mut App, name: &str) -> Task<Message> {
     Task::none()
 }
 
+fn ui_demo_picker(app: &mut App, action: &str) -> Task<Message> {
+    let suppressed = match action {
+        "hide" => true,
+        "show" => false,
+        _ => {
+            log::warn!("ui command: usage 'picker-demo <hide|show>'");
+            return Task::none();
+        }
+    };
+    if suppressed {
+        close_all_overlays(app);
+    }
+    if let Some(session) = app.runtime_state.demo.as_mut() {
+        session.picker_suppressed = suppressed;
+    }
+    app.retick();
+    Task::none()
+}
+
 fn ui_demo_apply(app: &mut App, raw: &str) -> Task<Message> {
     if app.runtime_state.demo.is_none() {
         log::warn!("ui command: output-scoped 'apply' requires an active demo session");
@@ -1646,6 +1666,7 @@ fn demo_begin(app: &mut App) -> Task<Message> {
             override_next_apply: false,
             audio_demo_volume: None,
             scroll_rate: 0.0,
+            picker_suppressed: false,
             batch_id: None,
             batch_commands: Vec::new(),
         };

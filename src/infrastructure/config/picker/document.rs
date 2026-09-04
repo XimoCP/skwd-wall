@@ -46,7 +46,7 @@ impl Config {
         main_monitor: str(skwd_config::keys::system::MONITOR, "");
         sandy_swap_loop: off_unless_on(skwd_config::keys::selector::SANDY_SWAP_LOOP);
         sandy_video_out_live: on_unless_off(skwd_config::keys::selector::SANDY_OUTGOING_LIVE);
-        slice_wobble: on_unless_off(skwd_config::keys::selector::SLICE_WOBBLE);
+        slice_wobble: off_unless_on(skwd_config::keys::selector::SLICE_WOBBLE);
         weather_match: off_unless_on(skwd_config::keys::general::WEATHER_MATCH);
     }
 

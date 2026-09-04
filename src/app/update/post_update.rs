@@ -21,7 +21,9 @@ pub(super) fn finish(
         app.panels.settings.section,
         hard_overlay,
     );
-    app.scene.set_visible(!scene_hidden);
+    let demo_hidden =
+        app.runtime_state.demo.as_ref().is_some_and(|session| session.picker_suppressed);
+    app.scene.set_visible(!scene_hidden && !demo_hidden);
     let inset = if design_mode {
         crate::frontend::settings::picker_layout_studio_width(
             app.scene.viewport.0,

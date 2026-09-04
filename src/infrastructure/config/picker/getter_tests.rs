@@ -247,7 +247,8 @@ fn tag_cloud_dims_clamp() {
 
 #[test]
 fn wobble_offset_getters() {
-    assert!(sel(json!({})).slice_wobble());
+    assert!(!sel(json!({})).slice_wobble());
+    assert!(sel(json!({"sliceWobble": true})).slice_wobble());
     assert!(!sel(json!({"sliceWobble": false})).slice_wobble());
     assert_eq!(sel(json!({"sliceWobbleStrength": 150.0})).slice_wobble_strength(), 1.5);
     assert_eq!(sel(json!({"sliceWobbleStrength": 500.0})).slice_wobble_strength(), 2.0);

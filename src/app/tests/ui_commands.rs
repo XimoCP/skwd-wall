@@ -604,6 +604,10 @@ fn demo_session_transient_restores_state() {
     assert!(app.runtime_state.demo.is_some());
     assert!(app.config.is_transient());
     assert_eq!(app.library_session.filtered.len(), 2);
+    cmd(&mut app, "picker-demo hide");
+    assert!(app.runtime_state.demo.as_ref().is_some_and(|session| session.picker_suppressed));
+    cmd(&mut app, "picker-demo show");
+    assert!(!app.runtime_state.demo.as_ref().is_some_and(|session| session.picker_suppressed));
     cmd(&mut app, "tune motion.slowMs 460");
     assert!((app.scene.filter_swap_ms() - 460.0).abs() < 0.01);
     cmd(&mut app, "motion 0.22");
