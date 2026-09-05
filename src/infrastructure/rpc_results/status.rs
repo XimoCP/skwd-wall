@@ -24,6 +24,12 @@ pub fn decode_status(value: &Value) -> DecodeResult<StatusResult> {
         version: string("status", object, "version")?.unwrap_or_default(),
         protocol: decode_protocol(object)?,
         capabilities: array("status", object, "capabilities")?.map_or_else(Vec::new, strings),
+        steam_helper_available: super::common::typed(
+            "status",
+            object,
+            "steam_helper_available",
+            "boolean",
+        )?,
         library_watch_present,
         library_watch,
     })

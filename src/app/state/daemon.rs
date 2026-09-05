@@ -51,6 +51,7 @@ pub(crate) struct DaemonState {
     pub(crate) effect_themes: Vec<String>,
     pub(crate) output_names: Vec<String>,
     pub(crate) output_statuses: Vec<crate::contracts::daemon::OutputStatus>,
+    pub(crate) steam_helper_available: Option<bool>,
     pub(crate) library_watch: Option<crate::contracts::daemon::LibraryWatchStatus>,
     pub(crate) tasks: TaskUiState,
 }
@@ -70,6 +71,7 @@ impl DaemonState {
             effect_themes: Vec::new(),
             output_names: Vec::new(),
             output_statuses: Vec::new(),
+            steam_helper_available: None,
             library_watch: None,
             tasks: TaskUiState::default(),
         }

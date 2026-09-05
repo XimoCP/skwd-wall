@@ -173,7 +173,7 @@ fn source_availability_gates() {
             "pexels": {"enabled": true, "apiKey": "key"}
         }
     }));
-    let availability = source_availability(&config);
+    let availability = source_availability(&config, None);
     let get = |source| availability.iter().find(|entry| entry.source == source).unwrap();
     assert_eq!(get(Source::Wallhaven).unavailable, None);
     assert_eq!(
@@ -185,4 +185,24 @@ fn source_availability_gates() {
         Some(crate::contracts::browser::SourceUnavailableReason::MissingCredentials)
     );
     assert_eq!(get(Source::Pexels).unavailable, None);
+}
+
+#[test]
+fn steam_availability_uses_daemon_helper_status_only_for_client_backend() {
+    use crate::contracts::browser::SourceUnavailableReason;
+    for (backend, available, expected) in [
+        ("steam", Some(false), Some(SourceUnavailableReason::MissingSteamHelper)),
+        ("steam", Some(true), None),
+        ("steam", None, None),
+        ("steamcmd", Some(false), None),
+    ] {
+        let config = super::super::config::Config::from_data(
+            json!({"features":{"steam":true},"steam":{"backend":backend}}),
+        );
+        let entries = source_availability(&config, available);
+        assert_eq!(
+            entries.iter().find(|entry| entry.source == Source::Steam).unwrap().unavailable,
+            expected
+        );
+    }
 }

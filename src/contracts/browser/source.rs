@@ -25,6 +25,7 @@ pub struct SourceAvailability {
 pub enum SourceUnavailableReason {
     Disabled,
     MissingCredentials,
+    MissingSteamHelper,
 }
 
 impl Source {

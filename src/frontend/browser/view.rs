@@ -1,6 +1,7 @@
 use iced::widget::canvas::{Frame, Path, Stroke};
 use iced::widget::{
-    button, canvas, column, container, image, mouse_area, row, shader, stack, text, text_input,
+    button, canvas, column, container, image, mouse_area, row, scrollable, shader, stack, text,
+    text_input,
 };
 use iced::{
     Alignment, Background, Color, Element, Font, Length, Padding, Point, Rectangle, Size, mouse,
@@ -155,6 +156,7 @@ fn source_tabs<'a>(
         let enabled = entry.unavailable.is_none();
         let status = match entry.unavailable {
             None => tr("browser-source-available"),
+            Some(SourceUnavailableReason::MissingSteamHelper) => tr("browser-source-steam-helper"),
             Some(SourceUnavailableReason::Disabled) => tr("browser-source-disabled"),
             Some(SourceUnavailableReason::MissingCredentials) => tr("browser-source-credentials"),
         };
@@ -687,43 +689,55 @@ pub fn view<'a>(
     .width(Length::Fixed(filter_inner_w))
     .height(Length::Fixed(compact_bar_size.1));
     let parameters = container(
-        column![
-            label(
-                tr("browser-search-label"),
-                8.5,
-                scale,
-                with_alpha(pal.surface_text, 0.42 * ease)
-            ),
-            container(search_box(br, scale, pal))
-                .width(Length::Fill)
-                .padding(Padding::from([6.0 * scale, 8.0 * scale]))
-                .style(move |_| {
-                    crate::frontend::ui::box_style(
-                        with_alpha(pal.background, 0.44),
-                        with_alpha(pal.outline, 0.34),
-                    )
-                }),
-            folio_horizontal_rule(with_alpha(pal.outline, 0.34)),
-            label(tr("browser-filter-index"), 9.0, scale, with_alpha(pal.primary, 0.9 * ease)),
-            label(
-                tr("browser-filter-title"),
-                19.0,
-                scale,
-                with_alpha(pal.surface_text, 0.96 * ease)
-            ),
-            label(
-                tr("browser-filter-desc"),
-                crate::frontend::ui::TYPE_SMALL,
-                scale,
-                with_alpha(pal.surface_text, 0.48 * ease)
-            ),
-            bar,
-        ]
-        .spacing(10.0 * scale),
+        scrollable(
+            column![
+                label(
+                    tr("browser-search-label"),
+                    8.5,
+                    scale,
+                    with_alpha(pal.surface_text, 0.42 * ease)
+                ),
+                container(search_box(br, scale, pal))
+                    .width(Length::Fill)
+                    .padding(Padding::from([6.0 * scale, 8.0 * scale]))
+                    .style(move |_| {
+                        crate::frontend::ui::box_style(
+                            with_alpha(pal.background, 0.44),
+                            with_alpha(pal.outline, 0.34),
+                        )
+                    }),
+                folio_horizontal_rule(with_alpha(pal.outline, 0.34)),
+                label(tr("browser-filter-index"), 9.0, scale, with_alpha(pal.primary, 0.9 * ease)),
+                label(
+                    tr("browser-filter-title"),
+                    19.0,
+                    scale,
+                    with_alpha(pal.surface_text, 0.96 * ease)
+                ),
+                label(
+                    tr("browser-filter-desc"),
+                    crate::frontend::ui::TYPE_SMALL,
+                    scale,
+                    with_alpha(pal.surface_text, 0.48 * ease)
+                ),
+                bar,
+            ]
+            .spacing(10.0 * scale)
+            .padding(Padding { right: 10.0 * scale, ..Padding::ZERO }),
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .direction(crate::frontend::ui::thin_vbar())
+        .style(crate::frontend::ui::scroll_style(with_alpha(pal.outline, 0.72))),
     )
     .width(Length::Fixed(filter_w))
     .height(Length::Fill)
-    .padding(Padding::from([15.0 * scale, 14.0 * scale]))
+    .padding(Padding {
+        top: 15.0 * scale,
+        right: 4.0 * scale,
+        bottom: 15.0 * scale,
+        left: 14.0 * scale,
+    })
     .style(move |_| {
         crate::frontend::ui::box_style(
             with_alpha(pal.surface_variant, 0.3),

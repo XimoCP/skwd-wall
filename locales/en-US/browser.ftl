@@ -140,3 +140,5 @@ browser-max-5m = ≤5m
 browser-max-10m = ≤10m
 browser-max-30m = ≤30m
 browser-max-1h = ≤1h
+
+browser-source-steam-helper = Install skwd-deck-steamworks or select SteamCMD in Settings > Steam

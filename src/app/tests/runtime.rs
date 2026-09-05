@@ -462,6 +462,31 @@ fn replacement_searches_advance_generation() {
 }
 
 #[test]
+fn browser_search_generation_survives_closing_and_reopening() {
+    let mut app = test_app();
+    app.source_browser.activate(Source::Wallhaven);
+    drain_calls(&app);
+    app.run_browser_search(false);
+    app.run_browser_search(false);
+    drain_calls(&app);
+
+    app.source_browser.close();
+    app.source_browser.activate(Source::Wallhaven);
+    app.run_browser_search(false);
+    assert_eq!(drain_calls(&app)[0].1["generation"], 3);
+
+    app.source_browser.activate(Source::Steam);
+    app.run_browser_search(false);
+    assert_eq!(drain_calls(&app)[0].1["generation"], 4);
+
+    app.source_browser.activate(Source::Wallhaven);
+    app.run_browser_search(true);
+    assert_eq!(drain_calls(&app)[0].1["generation"], 3);
+    app.run_browser_search(false);
+    assert_eq!(drain_calls(&app)[0].1["generation"], 5);
+}
+
+#[test]
 fn browser_preview_waits_for_prepared() {
     let mut app = test_app();
     let mut browser = Browser::new(Source::Wallhaven);

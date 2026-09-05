@@ -2,14 +2,23 @@ use crate::contracts::browser::{Source, SourceAvailability, SourceUnavailableRea
 
 use super::super::config::Config;
 
-pub fn source_availability(config: &Config) -> Vec<SourceAvailability> {
+pub fn source_availability(
+    config: &Config,
+    steam_helper_available: Option<bool>,
+) -> Vec<SourceAvailability> {
     Source::ALL
         .into_iter()
         .map(|source| {
             let unavailable = match source {
                 Source::Wallhaven => None,
                 Source::Steam => {
-                    (!config.steam_enabled()).then_some(SourceUnavailableReason::Disabled)
+                    if !config.steam_enabled() {
+                        Some(SourceUnavailableReason::Disabled)
+                    } else if config.steam_uses_client() && steam_helper_available == Some(false) {
+                        Some(SourceUnavailableReason::MissingSteamHelper)
+                    } else {
+                        None
+                    }
                 }
                 Source::Unsplash => {
                     if !config.source_enabled("unsplash") {

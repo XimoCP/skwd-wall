@@ -46,6 +46,10 @@ impl Config {
         skwd_config::wallhaven_enabled(&self.data)
     }
 
+    pub fn steam_uses_client(&self) -> bool {
+        self.get("steam.backend").and_then(Value::as_str) != Some("steamcmd")
+    }
+
     pub fn steam_enabled(&self) -> bool {
         skwd_config::steam_enabled(&self.data)
     }

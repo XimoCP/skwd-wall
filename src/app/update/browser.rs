@@ -133,9 +133,13 @@ pub(super) fn browser_apply_current(app: &mut App) -> Task<Message> {
 
 pub(super) fn open_browser(app: &mut App, source_key: &str) -> Task<Message> {
     app.close_settings();
+    app.call_tracked("status", serde_json::json!({}), crate::app::state::Pending::Status);
     let requested = crate::frontend::browser::Source::from_key(source_key)
         .unwrap_or(crate::frontend::browser::Source::Wallhaven);
-    let availability = crate::infrastructure::browser::source_availability(&app.config);
+    let availability = crate::infrastructure::browser::source_availability(
+        &app.config,
+        app.daemon.steam_helper_available,
+    );
     let source = availability
         .iter()
         .find(|entry| entry.source == requested && entry.unavailable.is_none())
@@ -153,9 +157,12 @@ pub(super) fn open_browser(app: &mut App, source_key: &str) -> Task<Message> {
 }
 
 fn switch_browser_source(app: &mut App, source: crate::frontend::browser::Source) -> Task<Message> {
-    let available = crate::infrastructure::browser::source_availability(&app.config)
-        .into_iter()
-        .any(|entry| entry.source == source && entry.unavailable.is_none());
+    let available = crate::infrastructure::browser::source_availability(
+        &app.config,
+        app.daemon.steam_helper_available,
+    )
+    .into_iter()
+    .any(|entry| entry.source == source && entry.unavailable.is_none());
     if !available || !app.source_browser.activate(source) {
         return Task::none();
     }

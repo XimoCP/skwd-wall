@@ -47,6 +47,7 @@ impl App {
     }
 
     pub(super) fn on_status(&mut self, result: crate::contracts::daemon::StatusResult) {
+        self.daemon.steam_helper_available = result.steam_helper_available;
         let picker_session = result.advertises("picker-session");
         if result.library_watch_present {
             self.daemon.library_watch = result.library_watch;

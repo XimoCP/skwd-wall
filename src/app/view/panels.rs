@@ -19,7 +19,10 @@ pub(super) fn panel_layers(app: &App) -> Vec<Element<'_, Message>> {
         layers.push(settings_layer(app));
     }
     if let Some(br) = &app.source_browser.browser {
-        let availability = crate::infrastructure::browser::source_availability(&app.config);
+        let availability = crate::infrastructure::browser::source_availability(
+            &app.config,
+            app.daemon.steam_helper_available,
+        );
         layers.push(
             crate::frontend::browser::view(
                 br,

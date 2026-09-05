@@ -209,6 +209,7 @@ pub struct StatusResult {
     pub version: String,
     pub protocol: Option<ProtocolStatus>,
     pub capabilities: Vec<String>,
+    pub steam_helper_available: Option<bool>,
     pub library_watch_present: bool,
     pub library_watch: Option<LibraryWatchStatus>,
 }

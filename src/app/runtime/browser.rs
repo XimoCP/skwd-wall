@@ -19,8 +19,9 @@ impl App {
         let Some((source, generation, mut call)) = (|| {
             let browser = self.source_browser.browser.as_mut()?;
             if !append {
-                browser.session.search_generation =
-                    browser.session.search_generation.saturating_add(1);
+                self.source_browser.search_generation =
+                    self.source_browser.search_generation.saturating_add(1);
+                browser.session.search_generation = self.source_browser.search_generation;
             }
             let page = if append { browser.session.page.saturating_add(1) } else { 1 };
             browser.session.loading = true;

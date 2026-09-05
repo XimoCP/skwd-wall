@@ -72,8 +72,7 @@ impl BrowserWallState {
 
     pub(crate) fn set_layout(&mut self, grid: GridParams) {
         self.base_grid = grid;
-        self.scene.set_grid_params(grid, false);
-        self.scene.touch();
+        self.fit_layout();
     }
 
     pub(crate) fn set_viewport(&mut self, width: f32, height: f32) {
@@ -83,16 +82,22 @@ impl BrowserWallState {
             return;
         }
         self.scene.viewport = (width, height);
+        self.fit_layout();
+    }
+
+    fn fit_layout(&mut self) {
+        let (width, height) = self.scene.viewport;
+        let (width, height) = (width.max(1.0), height.max(1.0));
         let mut grid = self.base_grid;
         let cols = grid.cols.max(1) as f32;
         let rows = grid.rows.max(1) as f32;
         let raw_w = cols * grid.thumb_w + (cols - 1.0) * grid.gap_x;
         let raw_h = rows * grid.thumb_h + (rows - 1.0) * grid.gap_y;
-        let fit = (width / raw_w.max(1.0)).min(height / raw_h.max(1.0)).clamp(0.1, 1.0);
-        grid.thumb_w *= fit;
-        grid.thumb_h *= fit;
+        let fit = (width / raw_w.max(1.0)).min(height / raw_h.max(1.0)).min(1.0);
         grid.gap_x *= fit;
         grid.gap_y *= fit;
+        grid.thumb_w = (width - (cols - 1.0) * grid.gap_x) / cols;
+        grid.thumb_h = (height - (rows - 1.0) * grid.gap_y) / rows;
         grid.corner_radius *= fit;
         grid.border_width *= fit;
         self.scene.set_grid_params(grid, false);
@@ -178,6 +183,7 @@ fn parse_resolution(value: &str) -> (i64, i64) {
 pub(crate) struct SourceBrowserState {
     pub(crate) browser: Option<Browser>,
     pub(crate) tabs: HashMap<Source, Browser>,
+    pub(crate) search_generation: u64,
     pub(crate) last_source: Source,
     pub(crate) entrance: Tween,
     pub(crate) spinner_phase: f32,
@@ -198,6 +204,7 @@ impl SourceBrowserState {
         Self {
             browser: None,
             tabs: HashMap::new(),
+            search_generation: 0,
             last_source: Source::Wallhaven,
             entrance: motion.tween(0.0, MotionTier::Slow),
             spinner_phase: 0.0,

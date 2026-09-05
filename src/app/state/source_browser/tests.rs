@@ -5,7 +5,7 @@ use crate::frontend::browser::{Browser, Source};
 use crate::frontend::scene::layout::GridParams;
 
 #[test]
-fn viewport_fit_snaps() {
+fn viewport_fit_fills_both_axes_and_preserves_gap_proportions() {
     let mut app = test_app();
     let wall = &mut app.source_browser.wall;
     wall.set_layout(GridParams {
@@ -21,8 +21,54 @@ fn viewport_fit_snaps() {
     wall.set_viewport(212.0, 264.0);
 
     assert!((wall.scene.gp.thumb_w - 50.0).abs() < 0.001);
-    assert!((wall.scene.gp.thumb_h - 30.0).abs() < 0.001);
+    assert!((wall.scene.gp.thumb_h - 63.0).abs() < 0.001);
     assert!((wall.scene.gp.gap_x - 4.0).abs() < 0.001);
+    assert!((wall.scene.gp.gap_y - 4.0).abs() < 0.001);
+    assert!((wall.scene.gp.total_w() - 212.0).abs() < 0.001);
+    assert!((wall.scene.gp.total_h() - 264.0).abs() < 0.001);
+}
+
+#[test]
+fn reopening_browser_refits_layout_without_a_viewport_change() {
+    let mut app = test_app();
+    let wall = &mut app.source_browser.wall;
+    let grid = GridParams { cols: 6, rows: 3, ..GridParams::default() };
+    wall.set_layout(grid);
+    wall.set_viewport(1552.0, 546.0);
+    let fitted = wall.scene.gp;
+
+    wall.set_layout(grid);
+    wall.set_viewport(1552.0, 546.0);
+
+    assert!(wall.scene.gp.settled_to(&fitted));
+    assert!((wall.scene.gp.total_w() - 1552.0).abs() < 0.001);
+    assert!((wall.scene.gp.total_h() - 546.0).abs() < 0.001);
+
+    wall.set_layout(GridParams { thumb_w: 400.0, ..grid });
+    assert!((wall.scene.gp.total_w() - 1552.0).abs() < 0.001);
+    assert!((wall.scene.gp.total_h() - 546.0).abs() < 0.001);
+    wall.set_viewport(2400.0, 1400.0);
+    wall.set_layout(grid);
+    assert!((wall.scene.gp.total_w() - 2400.0).abs() < 0.001);
+    assert!((wall.scene.gp.total_h() - 1400.0).abs() < 0.001);
+    assert_eq!(wall.layout_grid().thumb_w, grid.thumb_w);
+    assert_eq!(wall.layout_grid().thumb_h, grid.thumb_h);
+}
+
+#[test]
+fn browser_rows_and_columns_fill_the_results_frame_at_different_aspect_ratios() {
+    let mut app = test_app();
+    let wall = &mut app.source_browser.wall;
+    for (cols, rows) in [(6, 3), (4, 4), (1, 1)] {
+        wall.set_layout(GridParams { cols, rows, ..GridParams::default() });
+        for (width, height) in [(1552.0, 546.0), (1248.0, 728.0), (400.0, 900.0), (1.0, 1.0)] {
+            wall.set_viewport(width, height);
+            assert!((wall.scene.gp.total_w() - width).abs() < 0.001);
+            assert!((wall.scene.gp.total_h() - height).abs() < 0.001);
+            assert!(wall.scene.gp.thumb_w > 0.0);
+            assert!(wall.scene.gp.thumb_h > 0.0);
+        }
+    }
 }
 
 #[test]

@@ -188,7 +188,7 @@ Skwd-wall can use [Steamcmd](https://developer.valvesoftware.com/wiki/SteamCMD) 
 
 **API key + steamcmd (recommended):** add a Steam Web API key and set the backend to steamcmd. Browsing and downloads both work, no running Steam needed.
 
-**Steam Client:** leave defaults and keep Steam running.
+**Steam Client:** install the optional `skwd-deck-steamworks` package and keep native Steam running. The Fedora COPR install does not include this helper. Use SteamCMD if you have not installed the separate companion RPM.
 
 You won't have to interact with Steamcmd more than logging in once so that Skwd-wall can use your logged in Steamcmd to browse the Workshop and download Wallpaper Engine workshop items (wallpapers) for you and Skwd-wall will warn you if your token has expired or needs refreshing (read: you need to log into Steam again).
 

@@ -311,3 +311,13 @@ fn task_boundary_keeps_valid_rows_and_unknown_states() {
         .is_err()
     );
 }
+
+#[test]
+fn status_decodes_optional_steam_helper_availability() {
+    assert_eq!(decode_status(&json!({})).unwrap().steam_helper_available, None);
+    assert_eq!(
+        decode_status(&json!({"steam_helper_available":false})).unwrap().steam_helper_available,
+        Some(false)
+    );
+    assert!(decode_status(&json!({"steam_helper_available":"no"})).is_err());
+}
